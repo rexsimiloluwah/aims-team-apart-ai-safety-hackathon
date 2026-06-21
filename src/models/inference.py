@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -156,11 +157,29 @@ class ModelRunner:
         thinking_template: str,
         batch_size: int = 8,
     ) -> list[Prediction]:
+        mode = "self_consistency" if self.reasoning else samples[0].scoring
+        log.info(
+            "Running inference: %d samples, mode=%s, batch_size=%d (progress logged periodically)",
+            len(samples), mode, batch_size,
+        )
         if self.reasoning:
             return self._run_self_consistency(samples, thinking_template)
         if samples[0].scoring == "fixed_option":
             return self._run_fixed_option(samples, prompt_template, batch_size)
         return self._run_mc1(samples, prompt_template, batch_size)
+
+    def _log_progress(self, done: int, total: int, t0: float, tag: str) -> None:
+        """Periodic progress line so a long, otherwise-silent run shows it is alive."""
+        if done <= 0:
+            log.info("[%s] 0/%d starting...", tag, total)
+            return
+        elapsed = time.time() - t0
+        rate = done / elapsed if elapsed > 0 else 0.0
+        eta = (total - done) / rate if rate > 0 else 0.0
+        log.info(
+            "[%s] %d/%d (%.0f%%) | %.1f/s | elapsed %ds eta %ds",
+            tag, done, total, 100.0 * done / total, rate, int(elapsed), int(eta),
+        )
 
     # ----------------------------------------------------------------- #
     # mode 1: fixed-option logit readout
@@ -170,7 +189,11 @@ class ModelRunner:
         self, samples: list[MCQASample], template: str, batch_size: int
     ) -> list[Prediction]:
         preds: list[Prediction] = []
+        t0 = time.time()
+        n = len(samples)
         for start in range(0, len(samples), batch_size):
+            if (start // batch_size) % 10 == 0:
+                self._log_progress(start, n, t0, "fixed_option")
             batch = samples[start : start + batch_size]
             prompts = [
                 template.format(
@@ -210,6 +233,7 @@ class ModelRunner:
                         domain=s.domain,
                     )
                 )
+        self._log_progress(n, n, t0, "fixed_option")
         return preds
 
     # ----------------------------------------------------------------- #
@@ -220,7 +244,12 @@ class ModelRunner:
         self, samples: list[MCQASample], template: str, batch_size: int
     ) -> list[Prediction]:
         preds: list[Prediction] = []
-        for s in samples:
+        t0 = time.time()
+        n = len(samples)
+        step = max(1, n // 50)
+        for i, s in enumerate(samples):
+            if i % step == 0:
+                self._log_progress(i, n, t0, "mc1")
             stem = template.format(question=s.question)
             norm_logprobs = [self._candidate_logprob(stem, c) for c in s.choices]
             t = torch.tensor(norm_logprobs, dtype=torch.float32)
@@ -243,6 +272,7 @@ class ModelRunner:
                     domain=s.domain,
                 )
             )
+        self._log_progress(n, n, t0, "mc1")
         return preds
 
     @torch.inference_mode()
@@ -293,7 +323,12 @@ class ModelRunner:
         max_new = int(self.cfg.max_new_tokens)
 
         preds: list[Prediction] = []
-        for s in samples:
+        t0 = time.time()
+        total = len(samples)
+        step = max(1, total // 50)
+        for i, s in enumerate(samples):
+            if i % step == 0:
+                self._log_progress(i, total, t0, "self_consistency")
             labels = s.choice_labels or _letters(len(s.choices))
             block = _options_block(s.choices, labels)
             prompt = thinking_template.format(question=s.question, options_block=block)
@@ -357,6 +392,7 @@ class ModelRunner:
                     metadata={"n_votes": total_votes, "n_samples": n_samples},
                 )
             )
+        self._log_progress(total, total, t0, "self_consistency")
         return preds
 
     @staticmethod
