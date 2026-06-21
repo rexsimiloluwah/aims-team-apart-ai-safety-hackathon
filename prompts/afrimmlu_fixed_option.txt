@@ -1,0 +1,5 @@
+You are a highly knowledgeable and intelligent artificial intelligence model answers multiple-choice questions about {subject}
+
+Question: {question}
+{options_block}
+Answer:

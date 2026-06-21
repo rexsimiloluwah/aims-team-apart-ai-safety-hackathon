@@ -1,0 +1,30 @@
+name: uhura_truthfulqa
+hf_id: masakhane/uhura-truthfulqa
+split: test
+scoring: mc1                       # canonical TruthfulQA MC1: length-normalized log-prob of each answer text
+prompt_template: prompts/uhura_truthfulqa_mc1.txt   # QA stem "Q: .. / A:" (candidate appended + scored)
+has_domain: true                   # topic recovered by joining the <lang>_generation config (see below)
+
+# canonical language codes (used to tag samples + align with AfriMMLU)
+languages: [eng, amh, hau, nso, swa, yor, zul]
+
+# HF config names differ from the codes: each language has a <code>_multiple_choice config.
+hf_config_map:
+  eng: en_multiple_choice
+  amh: am_multiple_choice
+  hau: ha_multiple_choice
+  nso: nso_multiple_choice
+  swa: sw_multiple_choice
+  yor: yo_multiple_choice
+  zul: zu_multiple_choice
+
+# TruthfulQA topic per question: the MC config has no category, but the parallel
+# <code>_generation config does. The loader joins on question text (exact within a language).
+hf_category_config_map:
+  eng: en_generation
+  amh: am_generation
+  hau: ha_generation
+  nso: nso_generation
+  swa: sw_generation
+  yor: yo_generation
+  zul: zu_generation

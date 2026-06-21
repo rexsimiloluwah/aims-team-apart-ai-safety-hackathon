@@ -1,0 +1,35 @@
+# Planning / context docs (Claude-generated, not part of the repo)
+claude-docs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Environments
+.venv/
+.env
+
+# uv
+# (uv.lock IS committed; .venv is not)
+
+# Experiment artifacts
+artifacts/
+wandb/
+*.log
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Model / HF caches
+.cache/
+hf_cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp

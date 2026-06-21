@@ -1,0 +1,14 @@
+name: qwen3-4b-thinking
+hf_id: Qwen/Qwen3-4B-Thinking-2507
+dtype: bfloat16
+attn_implementation: sdpa
+max_length: 2048
+device_map: auto
+trust_remote_code: true
+use_chat_template: true
+
+reasoning: true         # -> self-consistency + verbalized confidence
+n_samples: 5            # traces sampled per item (5 keeps the E6 run ~hours, not ~days)
+temperature: 0.7        # sampling temperature for the traces
+top_p: 0.95
+max_new_tokens: 1024    # room for a <think> trace + final answer (capped for cost)

@@ -1,0 +1,54 @@
+[project]
+name = "confidently-wrong"
+version = "0.1.0"
+description = "Multilingual MCQA calibration, miscalibration, and safe abstention on Uhura-TruthfulQA and AfriMMLU with open-weight models."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "torch>=2.5",
+    "transformers>=4.51",
+    "accelerate>=0.33",
+    "datasets>=2.20",
+    "sentencepiece>=0.2",
+    "protobuf>=4.0",
+    "hydra-core>=1.3",
+    "omegaconf>=2.3",
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "scikit-learn>=1.4",
+    "pandas>=2.1",
+    "matplotlib>=3.8",
+    "tqdm>=4.66",
+    "huggingface-hub>=0.24",
+    "wandb>=0.17",
+]
+
+[project.optional-dependencies]
+notebook = ["jupyter>=1.0", "ipykernel>=6.29", "nbconvert>=7.0"]
+translate = ["transformers>=4.44"]  # NLLB-200 ships with transformers
+dev = ["pytest>=8.0", "ruff>=0.6"]
+
+[project.scripts]
+cw-run = "src.run:main"
+cw-analyze = "src.analyze:main"
+cw-compare = "src.compare:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

@@ -1,0 +1,11 @@
+name: afrimmlu
+hf_id: masakhane/afrimmlu
+split: test
+scoring: fixed_option              # A/B/C/D next-token logit readout
+prompt_template: prompts/afrimmlu_fixed_option.txt
+num_choices: 4
+choice_labels: ["A", "B", "C", "D"]
+has_domain: true                   # MMLU subject (verify field in Step 0)
+
+# HF *config* names (one per language). VERIFY in Step 0. IrokoBench/AfriMMLU codes.
+languages: [eng, fra, amh, ewe, hau, ibo, kin, lin, lug, orm, sna, sot, swa, twi, wol, xho, yor, zul]

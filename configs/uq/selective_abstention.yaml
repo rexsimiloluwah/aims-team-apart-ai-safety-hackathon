@@ -1,0 +1,8 @@
+name: selective_abstention
+# Confidence thresholds for the risk-coverage sweep (answer if confidence >= t).
+thresholds: [0.25, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+# Coverage targets for the per-language deployment card (fraction of items answered).
+coverage_targets: [0.5, 0.6, 0.7, 0.8, 0.9]
+threshold_source: per_language     # per_language | global
+n_bins: 15                         # ECE / reliability bins
+bootstrap_n: 1000                  # bootstrap resamples for CIs

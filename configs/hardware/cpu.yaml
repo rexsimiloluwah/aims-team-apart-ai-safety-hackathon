@@ -1,0 +1,7 @@
+name: cpu
+gpu_type: null
+gpu_count: 0
+machine_type: n2-standard-8     # local use; gce_submit only maps a100|l4
+zone: us-central1-a
+boot_disk_gb: 50
+batch_size: 2                   # small; CPU is for smoke/local validation only

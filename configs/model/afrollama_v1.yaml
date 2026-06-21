@@ -1,0 +1,18 @@
+name: afrollama-v1
+hf_id: Jacaranda/AfroLlama_V1
+dtype: bfloat16
+attn_implementation: sdpa
+max_length: 2048
+device_map: auto
+trust_remote_code: false
+use_chat_template: true
+
+reasoning: false
+n_samples: 1
+temperature: 0.0
+max_new_tokens: 8
+
+# AfroLlama was trained on these languages only. Amharic (amh) and N. Sotho (nso)
+# are OUT-OF-DISTRIBUTION - report them as an OOD contrast, not a fair-coverage claim.
+supported_languages: [swa, zul, yor, hau, xho, eng]
+ood_note: "amh and nso are out-of-distribution for AfroLlama_V1"

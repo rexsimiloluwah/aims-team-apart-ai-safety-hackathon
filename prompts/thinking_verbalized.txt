@@ -1,0 +1,6 @@
+Answer the following multiple-choice question. Think step by step. Then, on the final two lines, give your answer as the letter of the correct option and your confidence that it is correct, in exactly this format:
+Answer: <letter>
+Confidence: <0-100>%
+
+Question: {question}
+{options_block}

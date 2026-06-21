@@ -1,0 +1,34 @@
+# Hydra root config. Compose with: model=<m> dataset=<d> hardware=<h> uq=<u>
+defaults:
+  - model: qwen3_4b_instruct
+  - dataset: afrimmlu
+  - hardware: a100
+  - uq: selective_abstention
+  - _self_
+
+experiment:
+  name: ${hydra:runtime.choices.model}_${hydra:runtime.choices.dataset}
+  phase: 1
+  seed: 1234
+
+logging:
+  wandb_project: ${oc.env:WANDB_PROJECT,confidently-wrong}
+  wandb_mode: ${oc.env:WANDB_MODE,disabled}
+  save_logits: true
+
+artifacts:
+  base_dir: ./artifacts
+  experiment_dir: ${artifacts.base_dir}/${experiment.name}
+
+# null = use the dataset's full language list; or override e.g. languages=[eng,yor]
+languages: null
+
+# generic prompt used for reasoning/self-consistency on either dataset
+thinking_prompt_template: prompts/thinking_verbalized.txt
+
+hydra:
+  run:
+    dir: ${artifacts.experiment_dir}
+  output_subdir: hydra
+  job:
+    chdir: false

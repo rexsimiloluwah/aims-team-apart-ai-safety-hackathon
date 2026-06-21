@@ -1,0 +1,7 @@
+name: l4
+gpu_type: nvidia-l4
+gpu_count: 1
+machine_type: g2-standard-8
+zone: us-central1-a            # override at submit with GCE_ZONE=...
+boot_disk_gb: 100
+batch_size: 4                  # L4 has 24GB; smaller batches than A100

@@ -1,0 +1,13 @@
+name: qwen3-4b-instruct
+hf_id: Qwen/Qwen3-4B-Instruct-2507
+dtype: bfloat16
+attn_implementation: sdpa
+max_length: 2048
+device_map: auto
+trust_remote_code: true
+use_chat_template: true
+
+reasoning: false        # true -> self-consistency confidence mode
+n_samples: 1            # samples per item (self-consistency only)
+temperature: 0.0        # 0 = greedy (non-reasoning); >0 for sampling
+max_new_tokens: 8       # non-reasoning generation is unused; logit readout only

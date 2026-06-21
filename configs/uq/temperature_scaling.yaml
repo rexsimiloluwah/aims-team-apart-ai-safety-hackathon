@@ -1,0 +1,7 @@
+name: temperature_scaling
+# Fit one temperature per language on a calibration split; verify ECE drop on test.
+calibration_fraction: 0.5          # split each language's items 50/50 (seeded by sha256)
+fit_per_language: true             # the English temperature does NOT fix Yoruba
+temperature_grid: [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.2, 1.5, 2.0, 3.0, 5.0]
+n_bins: 15
+bootstrap_n: 1000

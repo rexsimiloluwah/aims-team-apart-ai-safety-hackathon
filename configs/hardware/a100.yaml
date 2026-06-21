@@ -1,0 +1,7 @@
+name: a100
+gpu_type: nvidia-tesla-a100
+gpu_count: 1
+machine_type: a2-highgpu-1g
+zone: us-central1-a            # override at submit with GCE_ZONE=...
+boot_disk_gb: 100
+batch_size: 8                  # scales with VRAM; halve on CUDA OOM
