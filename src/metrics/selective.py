@@ -49,6 +49,19 @@ def risk_coverage_curve(confidences, correct) -> dict[str, np.ndarray]:
     return {"coverage": coverage, "risk": risk, "aurc": aurc}
 
 
+def auarc(confidences, correct) -> float:
+    """Area Under the Accuracy-Rejection Curve (Tomani et al., 2024): integrate accuracy on the
+    retained set as the most-uncertain items are progressively rejected. Higher = uncertainty
+    better isolates correct answers; equals overall accuracy when confidence is uninformative."""
+    rc = risk_coverage_curve(confidences, correct)
+    cov, risk = rc["coverage"], rc["risk"]
+    if cov.size == 0:
+        return float("nan")
+    acc = 1.0 - risk  # accuracy on the answered (retained) set at each coverage
+    _trapz = getattr(np, "trapezoid", getattr(np, "trapz", None))
+    return float(_trapz(acc, cov))
+
+
 def threshold_for_coverage(confidences, target_coverage: float) -> float:
     """Confidence threshold that answers ~`target_coverage` of items (answer if conf>=t)."""
     c = np.asarray(confidences, dtype=float)

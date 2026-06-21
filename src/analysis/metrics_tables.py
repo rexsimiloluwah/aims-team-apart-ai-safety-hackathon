@@ -7,6 +7,7 @@ import pandas as pd
 
 from src.metrics import (
     accuracy,
+    auarc,
     auroc_error_detection,
     bootstrap_ci,
     brier_score,
@@ -51,6 +52,7 @@ def per_language_metrics(
             "brier": brier_score(conf, corr),
             "overconfidence": overconfidence_gap(conf, corr),
             "auroc": auroc_error_detection(conf, corr),
+            "auarc": auarc(conf, corr),
         }
         if bootstrap_n > 0 and corr.size > 0:
             ci_ece = bootstrap_ci(
@@ -101,6 +103,54 @@ def logit_vs_verbalized(preds: list[dict], n_bins: int = 15) -> pd.DataFrame:
                 "ece_verbalized": expected_calibration_error(cv, yv, n_bins),
                 "overconf_internal": overconfidence_gap(ci, yi),
                 "overconf_verbalized": overconfidence_gap(cv, yv),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def _measure_arrays(preds: list[dict], language: str | None = None):
+    """(confidence, entropy, margin, correct) arrays for one language (or all)."""
+    conf, ent, marg, corr = [], [], [], []
+    for p in preds:
+        if language is not None and p["language"] != language:
+            continue
+        if p.get("confidence") is None:
+            continue
+        conf.append(float(p["confidence"]))
+        ent.append(float(p.get("entropy", float("nan"))))
+        marg.append(float(p.get("margin", float("nan"))))
+        corr.append(1.0 if p["correct"] else 0.0)
+    return (np.asarray(conf), np.asarray(ent), np.asarray(marg), np.asarray(corr))
+
+
+def _safe_auroc(score: np.ndarray, corr: np.ndarray) -> float:
+    """auroc_error_detection on finite entries only (entropy can be NaN for unparsed items)."""
+    s = np.asarray(score, dtype=float)
+    y = np.asarray(corr, dtype=float)
+    m = np.isfinite(s) & np.isfinite(y)
+    if m.sum() == 0 or len(np.unique(y[m])) < 2:
+        return float("nan")
+    return auroc_error_detection(s[m], y[m])
+
+
+def uncertainty_measure_comparison(preds: list[dict]) -> pd.DataFrame:
+    """Error-detection AUROC of each uncertainty signal (max-prob, entropy, margin), per language
+    plus a pooled ALL row. Answers 'which signal best ranks correct vs incorrect?' (cf. Tomani
+    et al. 2024, Table 1). Entropy is negated so higher = more likely correct, matching the others.
+    """
+    langs = sorted({p["language"] for p in preds})
+    rows = []
+    for lang in [*langs, "ALL"]:
+        conf, ent, marg, corr = _measure_arrays(preds, None if lang == "ALL" else lang)
+        if corr.size == 0:
+            continue
+        rows.append(
+            {
+                "language": lang,
+                "n": int(corr.size),
+                "auroc_maxprob": _safe_auroc(conf, corr),
+                "auroc_entropy": _safe_auroc(-ent, corr),
+                "auroc_margin": _safe_auroc(marg, corr),
             }
         )
     return pd.DataFrame(rows)

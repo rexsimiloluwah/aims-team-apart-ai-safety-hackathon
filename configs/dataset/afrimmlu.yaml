@@ -1,10 +1,12 @@
 name: afrimmlu
 hf_id: masakhane/afrimmlu
 split: test
-scoring: fixed_option              # A/B/C/D next-token logit readout
-prompt_template: prompts/afrimmlu_fixed_option.txt
+# cloze: score each option's TEXT log-prob (mc1-style), robust for instruction-tuned models.
+# (letter 'fixed_option' scoring collapses gemma-4-it to "A"; cloze does not - see RUNBOOK.)
+scoring: cloze
+prompt_template: prompts/afrimmlu_cloze.txt
 num_choices: 4
-choice_labels: ["A", "B", "C", "D"]
+choice_labels: ["A", "B", "C", "D"]   # still used to locate the gold answer in each row
 has_domain: true                   # MMLU subject (verify field in Step 0)
 
 # HF *config* names (one per language). VERIFY in Step 0. IrokoBench/AfriMMLU codes.

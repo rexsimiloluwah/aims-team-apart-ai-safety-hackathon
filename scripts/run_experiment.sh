@@ -17,8 +17,27 @@ DATASET="${2:?missing dataset}"
 HARDWARE="${3:?missing hardware}"
 EXPERIMENT="${4:?missing experiment}"
 
-echo "[run_experiment] inference: model=${MODEL} dataset=${DATASET} hardware=${HARDWARE}"
-uv run python -m src.run model="${MODEL}" dataset="${DATASET}" hardware="${HARDWARE}"
+# Strip stray carriage returns: a Windows (CRLF) checkout can leave trailing \r on the args,
+# which corrupts the Hydra overrides (e.g. `model=afrollama_v1\r` -> LexerNoViableAltException).
+MODEL="${MODEL//$'\r'/}"
+DATASET="${DATASET//$'\r'/}"
+HARDWARE="${HARDWARE//$'\r'/}"
+EXPERIMENT="${EXPERIMENT//$'\r'/}"
+
+# Optional per-language sample cap (LIMIT env). Used mainly to keep the self-consistency
+# "thinking" runs feasible - the full Uhura/AfriMMLU set would take tens of hours otherwise.
+LIMIT="${LIMIT:-}"; LIMIT="${LIMIT//$'\r'/}"
+LIMIT_ARG=""
+[ -n "${LIMIT}" ] && LIMIT_ARG="+limit=${LIMIT}"
+
+# Optional few-shot (N_SHOTS env): in-context examples per language. run.py suffixes the
+# experiment dir with _Nshot to match the EXPERIMENT id gce_submit derives.
+N_SHOTS="${N_SHOTS:-}"; N_SHOTS="${N_SHOTS//$'\r'/}"
+SHOTS_ARG=""
+[ -n "${N_SHOTS}" ] && SHOTS_ARG="n_shots=${N_SHOTS}"
+
+echo "[run_experiment] inference: model=${MODEL} dataset=${DATASET} hardware=${HARDWARE} ${LIMIT_ARG} ${SHOTS_ARG}"
+uv run python -m src.run model="${MODEL}" dataset="${DATASET}" hardware="${HARDWARE}" ${LIMIT_ARG} ${SHOTS_ARG}
 rc=$?
 if [ "${rc}" -ne 0 ]; then
   echo "[run_experiment] src.run exited ${rc}; skipping analyze (no predictions to analyze)."

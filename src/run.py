@@ -13,7 +13,7 @@ import hydra
 from omegaconf import DictConfig, OmegaConf
 
 from src.analysis.metrics_tables import per_domain_accuracy, per_language_metrics
-from src.data.loader import load_samples
+from src.data.loader import load_samples, select_fewshot_shots
 from src.models.inference import ModelRunner
 from src.utils.io import (
     experiment_paths,
@@ -48,6 +48,16 @@ def main(cfg: DictConfig) -> None:
     samples = load_samples(cfg.dataset, languages=languages, token=token, limit=limit)
     log.info("Loaded %d samples", len(samples))
 
+    # 1b. optional few-shot: hold out shots per language (excluded from eval)
+    n_shots = int(cfg.get("n_shots", 0))
+    fewshot_shots = None
+    if n_shots > 0:
+        samples, fewshot_shots = select_fewshot_shots(samples, n_shots)
+        log.info(
+            "Few-shot: %d shot(s)/lang held out; %d eval samples across %d langs",
+            n_shots, len(samples), len(fewshot_shots),
+        )
+
     # 2. model + prompts
     runner = ModelRunner(cfg.model, token=token, seed=int(cfg.experiment.seed))
     prompt_text = (REPO_ROOT / cfg.dataset.prompt_template).read_text()
@@ -55,13 +65,18 @@ def main(cfg: DictConfig) -> None:
 
     # 3. inference
     preds = runner.run(
-        samples, prompt_text, thinking_text, batch_size=int(cfg.hardware.batch_size)
+        samples, prompt_text, thinking_text,
+        batch_size=int(cfg.hardware.batch_size), fewshot_shots=fewshot_shots,
     )
     log.info("Produced %d predictions", len(preds))
 
     # 4. persist
-    # anchor artifacts to the repo (not the CWD) so results land consistently
-    paths = experiment_paths(REPO_ROOT / cfg.artifacts.experiment_dir)
+    # anchor artifacts to the repo (not the CWD) so results land consistently.
+    # few-shot runs get a "_Nshot" suffix so they never clobber the zero-shot results.
+    exp_name = str(cfg.experiment.name)
+    if n_shots > 0 and not exp_name.endswith("shot"):
+        exp_name = f"{exp_name}_{n_shots}shot"
+    paths = experiment_paths(REPO_ROOT / cfg.artifacts.base_dir / exp_name)
     # save a fully-resolved snapshot (no ${hydra:...} interpolations to break on reload)
     resolved = OmegaConf.create(OmegaConf.to_container(cfg, resolve=True))
     OmegaConf.save(resolved, paths["base"] / "config.yaml")
@@ -82,7 +97,7 @@ def main(cfg: DictConfig) -> None:
         )
 
     summary = {
-        "experiment": cfg.experiment.name,
+        "experiment": exp_name,
         "model": cfg.model.hf_id,
         "dataset": cfg.dataset.hf_id,
         "n_samples": len(samples),

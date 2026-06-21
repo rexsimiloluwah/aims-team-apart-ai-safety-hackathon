@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -32,6 +33,48 @@ def _ordered(langs: list[str]) -> list[str]:
     known = [lang for lang in LANG_ORDER if lang in langs]
     rest = sorted(set(langs) - set(known))
     return known + rest
+
+
+def _fewshot_comparison(allm: pd.DataFrame, out: Path) -> None:
+    """If any experiment has a paired `_Nshot` (few-shot) and its base (zero-shot) run, tabulate
+    and plot the zero-shot vs few-shot effect on accuracy / ECE / overconfidence (macro-mean over
+    languages). No-op if no few-shot runs are present."""
+    agg = allm.groupby("experiment")[["accuracy", "ece", "overconfidence"]].mean()
+    pat = re.compile(r"^(.*)_(\d+)shot$")
+    pairs = [(m.group(1), e, int(m.group(2)))
+             for e in agg.index for m in [pat.match(e)] if m and m.group(1) in agg.index]
+    if not pairs:
+        return
+    rows = []
+    for base, fs, k in sorted(pairs):
+        b, f = agg.loc[base], agg.loc[fs]
+        rows.append({
+            "model": base, "n_shots": k,
+            "acc_0shot": b.accuracy, "acc_kshot": f.accuracy, "acc_delta": f.accuracy - b.accuracy,
+            "ece_0shot": b.ece, "ece_kshot": f.ece, "ece_delta": f.ece - b.ece,
+            "overconf_0shot": b.overconfidence, "overconf_kshot": f.overconfidence,
+            "overconf_delta": f.overconfidence - b.overconfidence,
+        })
+    df = pd.DataFrame(rows)
+    df.to_csv(out / "fewshot_vs_zeroshot.csv", index=False)
+
+    labels = [r["model"].replace("_uhura_truthfulqa", "").replace("_afrimmlu", "") for r in rows]
+    k_label = f"{df['n_shots'].iloc[0]}-shot"
+    x = list(range(len(labels)))
+    w = 0.38
+    fig, axes = plt.subplots(1, 2, figsize=(max(8, 1.8 * len(labels)), 4), constrained_layout=True)
+    for ax, (metric, c0, ck) in zip(axes, [("accuracy", "acc_0shot", "acc_kshot"),
+                                           ("ECE", "ece_0shot", "ece_kshot")]):
+        ax.bar([xi - w / 2 for xi in x], df[c0].values, w, label="0-shot", color=PALETTE[0])
+        ax.bar([xi + w / 2 for xi in x], df[ck].values, w, label=k_label, color=PALETTE[1])
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, rotation=30, ha="right")
+        ax.set_ylabel(metric)
+        ax.set_title(f"{metric}: zero-shot vs {k_label}")
+        ax.legend(fontsize=8)
+    fig.savefig(out / "fewshot_vs_zeroshot.png")
+    plt.close(fig)
+    print(f"Few-shot vs zero-shot ({len(rows)} pair(s)) -> {out / 'fewshot_vs_zeroshot.csv'}")
 
 
 def main() -> None:
@@ -94,6 +137,9 @@ def main() -> None:
     radar(cols, series, ax=ax, title="Accuracy across languages (by model)")
     fig.savefig(out / "accuracy_radar.png")
     plt.close(fig)
+
+    # zero-shot vs few-shot panel (only if paired _Nshot experiments exist)
+    _fewshot_comparison(allm, out)
 
     print(f"Comparison written to {out}")
 

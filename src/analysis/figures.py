@@ -107,6 +107,58 @@ def save_language_bars(df, out_dir: Path, title_label: str = "") -> list[Path]:
     return outs
 
 
+def save_temperature_scaling(df, out_dir: Path, title_label: str = "") -> Path:
+    """Grouped bars: per-language ECE before vs after temperature scaling (the recalibration
+    mitigation). Excludes the pooled 'ALL' row from the per-language axis."""
+    set_style()
+    d = df[df["language"] != "ALL"].set_index("language")
+    langs = list(d.index)
+    x = list(range(len(langs)))
+    w = 0.38
+    before = list(d["ece_before"].values)
+    after = list(d["ece_after"].values)
+
+    fig, ax = plt.subplots(figsize=(max(5, 0.7 * len(langs)), 4), constrained_layout=True)
+    ax.bar([xi - w / 2 for xi in x], before, w, label="before (T=1)", color=PALETTE[0])
+    ax.bar([xi + w / 2 for xi in x], after, w, label="after temp-scaling", color=PALETTE[1])
+    ax.set_xticks(x)
+    ax.set_xticklabels(langs)
+    ax.set_ylabel("ECE")
+    ax.set_title(f"Temperature scaling: ECE before vs after{_suffix(title_label)}")
+    ax.legend()
+    p = out_dir / "temperature_scaling.png"
+    fig.savefig(p)
+    plt.close(fig)
+    return p
+
+
+def save_uncertainty_measures(df, out_dir: Path, title_label: str = "") -> Path:
+    """Grouped bars: error-detection AUROC of each uncertainty signal (max-prob / entropy / margin)
+    per language, with a 0.5 random-baseline line. Excludes the pooled 'ALL' row."""
+    set_style()
+    d = df[df["language"] != "ALL"].set_index("language")
+    langs = list(d.index)
+    x = list(range(len(langs)))
+    w = 0.26
+    cols = [("auroc_maxprob", "max-prob"), ("auroc_entropy", "entropy"), ("auroc_margin", "margin")]
+    colors = [PALETTE[i % len(PALETTE)] for i in range(3)]
+
+    fig, ax = plt.subplots(figsize=(max(5, 0.8 * len(langs)), 4), constrained_layout=True)
+    for j, (col, lab) in enumerate(cols):
+        offset = (j - 1) * w
+        ax.bar([xi + offset for xi in x], list(d[col].values), w, label=lab, color=colors[j])
+    ax.axhline(0.5, ls="--", lw=1, color="grey", label="random (0.5)")
+    ax.set_xticks(x)
+    ax.set_xticklabels(langs)
+    ax.set_ylabel("error-detection AUROC")
+    ax.set_title(f"Which uncertainty signal ranks errors best?{_suffix(title_label)}")
+    ax.legend(fontsize=8)
+    p = out_dir / "uncertainty_measures.png"
+    fig.savefig(p)
+    plt.close(fig)
+    return p
+
+
 def save_language_radar(df, out_dir: Path, title_label: str = "") -> Path:
     """Radar over languages: accuracy and calibration (1 - ECE) profile for this model."""
     set_style()

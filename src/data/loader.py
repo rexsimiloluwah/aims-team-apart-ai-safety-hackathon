@@ -13,6 +13,7 @@ import ast
 import hashlib
 import logging
 import random
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -205,7 +206,8 @@ def _row_to_mc1(
 
 
 def _row_to_fixed(
-    row: dict, idx: int, lang: str, num_choices: int, choice_labels: list[str], has_domain: bool
+    row: dict, idx: int, lang: str, num_choices: int, choice_labels: list[str], has_domain: bool,
+    score_as: str = "fixed_option",
 ) -> MCQASample:
     question = _first_present(row, ["question", "Question", "prompt"])
     if question is None:
@@ -244,17 +246,45 @@ def _row_to_fixed(
         question=str(question),
         choices=choices,
         answer_index=answer_index,
-        scoring="fixed_option",
-        choice_labels=list(choice_labels),
+        # cloze: score by choice-TEXT log-prob via the mc1 path (robust for instruct models);
+        # default: letter logit readout. No shuffle either way - afrimmlu options aren't gold-first.
+        scoring="mc1" if score_as == "mc1" else "fixed_option",
+        choice_labels=None if score_as == "mc1" else list(choice_labels),
         domain=str(domain) if domain is not None else None,
         context=str(context) if context is not None else None,
-        metadata={"raw_id": rid},
+        metadata={"raw_id": rid, "scoring_method": "cloze" if score_as == "mc1" else "fixed_option"},
     )
 
 
 # --------------------------------------------------------------------------- #
 # public API
 # --------------------------------------------------------------------------- #
+def _load_split_with_retry(hf_id, hf_config, split, token, attempts: int = 4):
+    """`load_dataset` with retries. HF Hub fetches can transiently 404 / throttle while
+    resolving a config's split files (datasets resolves val/dev/test even when we only
+    want test), which killed an otherwise-fine run. Returns the split, or None if it
+    never succeeds (caller decides skip-vs-raise)."""
+    delay = 5.0
+    last = None
+    for i in range(1, attempts + 1):
+        try:
+            return load_dataset(hf_id, hf_config, split=split, token=token)
+        except Exception as exc:  # noqa: BLE001
+            last = exc
+            log.warning(
+                "load_dataset(%s, config=%s, split=%s) attempt %d/%d failed: %s",
+                hf_id, hf_config, split, i, attempts, str(exc).splitlines()[0][:160],
+            )
+            if i < attempts:
+                time.sleep(delay)
+                delay *= 2
+    log.error(
+        "Could not load %s/%s after %d attempts: %s",
+        hf_id, hf_config, attempts, str(last).splitlines()[0][:200] if last else "?",
+    )
+    return None
+
+
 def load_samples(
     dataset_cfg,
     languages: list[str] | None = None,
@@ -281,24 +311,35 @@ def load_samples(
     langs = list(languages) if languages else list(dataset_cfg.languages)
 
     samples: list[MCQASample] = []
+    skipped: list[str] = []
     for lang in langs:
         hf_config = cfg_map[lang] if (cfg_map and lang in cfg_map) else lang
         # topic/category per question (Uhura: joined from the <lang>_generation config)
         category_map = None
         if cat_cfg_map and lang in cat_cfg_map:
             category_map = _build_category_map(hf_id, cat_cfg_map[lang], token)
-        try:
-            ds = load_dataset(hf_id, hf_config, split=split, token=token)
-        except Exception as exc:  # noqa: BLE001 - surface available configs
+
+        ds = _load_split_with_retry(hf_id, hf_config, split, token)
+        if ds is None:
+            # Distinguish a genuine misconfiguration (bad config name -> fail loud so it gets
+            # fixed) from one valid-but-flaky language (transient HF fetch -> skip & continue so
+            # a single language can't waste a whole multi-hour run).
             try:
-                configs = available_configs(hf_id, token=token)
+                configs = get_dataset_config_names(hf_id, token=token)
             except Exception:  # noqa: BLE001
-                configs = ["<could not list configs>"]
-            raise ValueError(
-                f"Could not load config '{hf_config}' (lang='{lang}', split='{split}') "
-                f"for '{hf_id}'.\nAvailable configs: {configs}\n"
-                f"Fix the languages / hf_config_map in the dataset config to match these."
-            ) from exc
+                configs = []
+            if configs and hf_config not in configs:
+                raise ValueError(
+                    f"Could not load config '{hf_config}' (lang='{lang}', split='{split}') "
+                    f"for '{hf_id}'.\nAvailable configs: {configs}\n"
+                    f"Fix the languages / hf_config_map in the dataset config to match these."
+                )
+            log.warning(
+                "SKIPPING lang=%s (config=%s): load failed after retries; continuing with the rest.",
+                lang, hf_config,
+            )
+            skipped.append(lang)
+            continue
 
         n_before = len(samples)
         for idx, row in enumerate(ds):
@@ -306,7 +347,8 @@ def load_samples(
                 break
             if scoring == "mc1":
                 samples.append(_row_to_mc1(row, idx, lang, has_domain, category_map))
-            elif scoring == "fixed_option":
+            elif scoring in ("fixed_option", "cloze"):
+                # 'cloze' = same fixed-option data, but scored by choice-TEXT log-prob (mc1 path)
                 samples.append(
                     _row_to_fixed(
                         row,
@@ -315,15 +357,43 @@ def load_samples(
                         int(dataset_cfg.num_choices),
                         list(dataset_cfg.choice_labels),
                         has_domain,
+                        score_as="mc1" if scoring == "cloze" else "fixed_option",
                     )
                 )
             else:
                 raise ValueError(f"Unknown scoring mode: {scoring}")
         log.info("Loaded %d samples for %s/%s", len(samples) - n_before, hf_id, lang)
 
+    if skipped:
+        log.warning(
+            "Loaded %d/%d languages; skipped %d that failed to load: %s",
+            len(langs) - len(skipped), len(langs), len(skipped), skipped,
+        )
     if not samples:
         raise ValueError(f"No samples loaded for {hf_id} langs={langs}")
     return samples
+
+
+def select_fewshot_shots(
+    samples: list[MCQASample], n_shots: int
+) -> tuple[list[MCQASample], dict[str, list[MCQASample]]]:
+    """Hold out the first `n_shots` items per language as in-context examples; the rest are
+    evaluated. Returns (eval_samples, shots_by_language). Languages with too few items keep all
+    items for eval (no shots), so a small language can't be emptied. Deterministic (dataset order)."""
+    if n_shots <= 0:
+        return samples, {}
+    by_lang: dict[str, list[MCQASample]] = {}
+    for s in samples:
+        by_lang.setdefault(s.language, []).append(s)
+    eval_samples: list[MCQASample] = []
+    shots: dict[str, list[MCQASample]] = {}
+    for lang, items in by_lang.items():
+        if len(items) <= n_shots + 1:  # keep at least one eval item
+            eval_samples.extend(items)
+            continue
+        shots[lang] = items[:n_shots]
+        eval_samples.extend(items[n_shots:])
+    return eval_samples, shots
 
 
 def print_one(samples: list[MCQASample], language: str | None = None) -> None:

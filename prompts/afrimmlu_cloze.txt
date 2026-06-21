@@ -1,0 +1,4 @@
+The following is a multiple-choice question about {subject}. Give the correct answer.
+
+Question: {question}
+Answer:

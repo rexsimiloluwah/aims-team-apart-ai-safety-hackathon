@@ -22,10 +22,16 @@ IMAGE_PROJECT="deeplearning-platform-release"
 HF_TOKEN="${HF_TOKEN:-}"
 WANDB_API_KEY="${WANDB_API_KEY:-}"
 WANDB_MODE="${WANDB_MODE:-disabled}"
+LIMIT="${LIMIT:-}"   # optional per-language sample cap (e.g. LIMIT=50); used mainly for the thinking runs
+N_SHOTS="${N_SHOTS:-}"   # optional in-context examples per language (e.g. N_SHOTS=5); 0/empty = zero-shot
 
 EXPERIMENT="${MODEL}_${DATASET}"
+# few-shot runs get a distinct experiment id so they never overwrite the zero-shot results
+if [ -n "${N_SHOTS}" ] && [ "${N_SHOTS}" -gt 0 ] 2>/dev/null; then
+  EXPERIMENT="${EXPERIMENT}_${N_SHOTS}shot"
+fi
 # instance names: lowercase, alnum+hyphen only, no trailing hyphen, <=63 chars (skill #3)
-INSTANCE_NAME="cw-$(echo "${MODEL}-${DATASET}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-' | sed -E 's/-+/-/g; s/-+$//' | cut -c1-50 | sed -E 's/-+$//')"
+INSTANCE_NAME="cw-$(echo "${EXPERIMENT}" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-' | sed -E 's/-+/-/g; s/-+$//' | cut -c1-50 | sed -E 's/-+$//')"
 REMOTE_DIR="/home/\$USER/cw"
 SESSION="cw"
 
@@ -105,6 +111,7 @@ gcloud compute ssh "${INSTANCE_NAME}" --project="${PROJECT_ID}" --zone="${ZONE}"
     set -e
     mkdir -p ${REMOTE_DIR}
     tar xzf /tmp/cw_upload.tar.gz -C ${REMOTE_DIR}
+    find ${REMOTE_DIR} -name '*.sh' -exec sed -i 's/\r//g' {} +
     curl -LsSf https://astral.sh/uv/install.sh | sh
     export PATH=\$HOME/.local/bin:\$PATH
     cd ${REMOTE_DIR}
@@ -114,6 +121,8 @@ gcloud compute ssh "${INSTANCE_NAME}" --project="${PROJECT_ID}" --zone="${ZONE}"
       export HF_TOKEN='${HF_TOKEN}' &&
       export WANDB_API_KEY='${WANDB_API_KEY}' &&
       export WANDB_MODE='${WANDB_MODE}' &&
+      export LIMIT='${LIMIT}' &&
+      export N_SHOTS='${N_SHOTS}' &&
       export PYTHONUNBUFFERED=1 &&
       cd ${REMOTE_DIR} &&
       bash scripts/run_experiment.sh ${MODEL} ${DATASET} ${HARDWARE} ${EXPERIMENT} 2>&1 | tee experiment.log ;

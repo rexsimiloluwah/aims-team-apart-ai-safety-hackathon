@@ -1,0 +1,27 @@
+# Force LF line endings on all text files.
+# Shell scripts run on the Linux GPU box; a Windows (CRLF) checkout makes bash choke on \r
+# (e.g. "set: pipefail\r: invalid option name", "model=foo\r -> LexerNoViableAltException").
+* text=auto eol=lf
+
+# Belt and suspenders for the files that MUST be LF to execute:
+*.sh   text eol=lf
+*.py   text eol=lf
+*.yaml text eol=lf
+*.yml  text eol=lf
+*.toml text eol=lf
+*.txt  text eol=lf
+
+# Windows batch files, if ever added, want CRLF:
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# Binary: never touch line endings.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.pdf  binary
+*.docx binary
+*.xlsx binary
+*.npz  binary
+*.npy  binary
+*.gz   binary

@@ -7,6 +7,7 @@ from src.metrics.calibration import (
 )
 from src.metrics.selective import (
     accuracy_at_coverage,
+    auarc,
     auroc_error_detection,
     build_deployment_card,
     errors_removed_at_threshold,
@@ -22,6 +23,7 @@ __all__ = [
     "overconfidence_gap",
     "reliability_bins",
     "auroc_error_detection",
+    "auarc",
     "risk_coverage_curve",
     "accuracy_at_coverage",
     "errors_removed_at_threshold",

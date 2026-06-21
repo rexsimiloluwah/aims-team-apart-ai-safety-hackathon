@@ -156,17 +156,47 @@ class ModelRunner:
         prompt_template: str,
         thinking_template: str,
         batch_size: int = 8,
+        fewshot_shots: dict[str, list[MCQASample]] | None = None,
     ) -> list[Prediction]:
         mode = "self_consistency" if self.reasoning else samples[0].scoring
+        n_shots = max((len(v) for v in (fewshot_shots or {}).values()), default=0)
         log.info(
-            "Running inference: %d samples, mode=%s, batch_size=%d (progress logged periodically)",
-            len(samples), mode, batch_size,
+            "Running inference: %d samples, mode=%s, batch_size=%d, n_shots=%d (progress logged periodically)",
+            len(samples), mode, batch_size, n_shots,
         )
         if self.reasoning:
             return self._run_self_consistency(samples, thinking_template)
+        prefixes = self._fewshot_prefixes(fewshot_shots, prompt_template, samples[0].scoring)
         if samples[0].scoring == "fixed_option":
-            return self._run_fixed_option(samples, prompt_template, batch_size)
-        return self._run_mc1(samples, prompt_template, batch_size)
+            return self._run_fixed_option(samples, prompt_template, batch_size, prefixes)
+        return self._run_mc1(samples, prompt_template, batch_size, prefixes)
+
+    def _fewshot_prefixes(self, fewshot_shots, template: str, scoring: str) -> dict[str, str]:
+        if not fewshot_shots:
+            return {}
+        return {
+            lang: self._fewshot_prefix(shots, template, scoring)
+            for lang, shots in fewshot_shots.items()
+        }
+
+    def _fewshot_prefix(self, shots: list[MCQASample], template: str, scoring: str) -> str:
+        """k solved examples formatted exactly like the scoring prompt, with the gold answer
+        appended, joined before the real prompt. Same format -> the model just sees worked examples."""
+        blocks = []
+        for s in shots:
+            if scoring == "fixed_option":
+                labels = s.choice_labels or _letters(len(s.choices))
+                q = template.format(
+                    question=s.question,
+                    options_block=_options_block(s.choices, labels),
+                    subject=(s.domain or "general knowledge"),
+                )
+                ans = labels[s.answer_index] if 0 <= s.answer_index < len(labels) else ""
+            else:  # mc1
+                q = template.format(question=s.question, subject=(s.domain or "general knowledge"))
+                ans = s.choices[s.answer_index].strip() if 0 <= s.answer_index < len(s.choices) else ""
+            blocks.append(f"{q} {ans}")
+        return "\n\n".join(blocks) + "\n\n" if blocks else ""
 
     def _log_progress(self, done: int, total: int, t0: float, tag: str) -> None:
         """Periodic progress line so a long, otherwise-silent run shows it is alive."""
@@ -186,8 +216,9 @@ class ModelRunner:
     # ----------------------------------------------------------------- #
     @torch.inference_mode()
     def _run_fixed_option(
-        self, samples: list[MCQASample], template: str, batch_size: int
+        self, samples: list[MCQASample], template: str, batch_size: int, prefixes=None
     ) -> list[Prediction]:
+        prefixes = prefixes or {}
         preds: list[Prediction] = []
         t0 = time.time()
         n = len(samples)
@@ -196,7 +227,8 @@ class ModelRunner:
                 self._log_progress(start, n, t0, "fixed_option")
             batch = samples[start : start + batch_size]
             prompts = [
-                template.format(
+                prefixes.get(s.language, "")
+                + template.format(
                     question=s.question,
                     options_block=_options_block(s.choices, s.choice_labels),
                     subject=(s.domain or "general knowledge"),  # AfriMMLU t1 uses {subject}
@@ -241,8 +273,9 @@ class ModelRunner:
     # ----------------------------------------------------------------- #
     @torch.inference_mode()
     def _run_mc1(
-        self, samples: list[MCQASample], template: str, batch_size: int
+        self, samples: list[MCQASample], template: str, batch_size: int, prefixes=None
     ) -> list[Prediction]:
+        prefixes = prefixes or {}
         preds: list[Prediction] = []
         t0 = time.time()
         n = len(samples)
@@ -250,7 +283,10 @@ class ModelRunner:
         for i, s in enumerate(samples):
             if i % step == 0:
                 self._log_progress(i, n, t0, "mc1")
-            stem = template.format(question=s.question)
+            # subject= is used by the AfriMMLU cloze template; Uhura's template ignores the extra kwarg
+            stem = prefixes.get(s.language, "") + template.format(
+                question=s.question, subject=(s.domain or "general knowledge")
+            )
             norm_logprobs = [self._candidate_logprob(stem, c) for c in s.choices]
             t = torch.tensor(norm_logprobs, dtype=torch.float32)
             probs = F.softmax(t, dim=-1)
@@ -325,7 +361,7 @@ class ModelRunner:
         preds: list[Prediction] = []
         t0 = time.time()
         total = len(samples)
-        step = max(1, total // 50)
+        step = 1  # self-consistency is ~tens of seconds/item; log every one (gives a live ETA fast)
         for i, s in enumerate(samples):
             if i % step == 0:
                 self._log_progress(i, total, t0, "self_consistency")

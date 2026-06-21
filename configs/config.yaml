@@ -23,6 +23,10 @@ artifacts:
 # null = use the dataset's full language list; or override e.g. languages=[eng,yor]
 languages: null
 
+# in-context examples per language (0 = zero-shot). Shots are held out from eval.
+# Used to test whether few-shot prompting changes calibration/overconfidence.
+n_shots: 0
+
 # generic prompt used for reasoning/self-consistency on either dataset
 thinking_prompt_template: prompts/thinking_verbalized.txt
 
