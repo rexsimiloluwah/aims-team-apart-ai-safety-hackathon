@@ -114,11 +114,13 @@ gcloud compute ssh "${INSTANCE_NAME}" --project="${PROJECT_ID}" --zone="${ZONE}"
       export HF_TOKEN='${HF_TOKEN}' &&
       export WANDB_API_KEY='${WANDB_API_KEY}' &&
       export WANDB_MODE='${WANDB_MODE}' &&
+      export PYTHONUNBUFFERED=1 &&
       cd ${REMOTE_DIR} &&
-      uv run python -m src.run model=${MODEL} dataset=${DATASET} hardware=${HARDWARE} 2>&1 | tee experiment.log ;
-      uv run python -m src.analyze --experiment ${EXPERIMENT} 2>&1 | tee -a experiment.log ;
-      gsutil -m cp -r artifacts/${EXPERIMENT}/* gs://${BUCKET}/${EXPERIMENT}/ ;
-      gsutil cp experiment.log gs://${BUCKET}/${EXPERIMENT}/experiment.log ;
+      echo '[job started] follow with: tail -f ${REMOTE_DIR}/experiment.log  (do NOT press Ctrl+C)' &&
+      ( uv run python -m src.run model=${MODEL} dataset=${DATASET} hardware=${HARDWARE} > experiment.log 2>&1 &&
+        uv run python -m src.analyze --experiment ${EXPERIMENT} >> experiment.log 2>&1 ) ;
+      gsutil -m cp -r artifacts/${EXPERIMENT}/* gs://${BUCKET}/${EXPERIMENT}/ 2>/dev/null || true ;
+      gsutil cp experiment.log gs://${BUCKET}/${EXPERIMENT}/experiment.log 2>/dev/null || true ;
       gcloud compute instances delete ${INSTANCE_NAME} --zone=${ZONE} -q
     \"
   "
