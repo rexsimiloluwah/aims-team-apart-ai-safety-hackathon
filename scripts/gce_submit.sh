@@ -90,14 +90,24 @@ for i in $(seq 1 12); do
 done
 
 # --- upload project as a single tarball (skill #5) ---
-TARBALL="/tmp/cw_upload.tar.gz"
+# Unique local temp per instance so parallel submits never clobber each other's tarball
+# (a shared /tmp/cw_upload.tar.gz races under concurrency -> corrupt upload / "busy" rm).
+TARBALL="/tmp/cw_upload_${INSTANCE_NAME}.tar.gz"
 tar czf "${TARBALL}" \
   --exclude='.venv' --exclude='.git' --exclude='artifacts' --exclude='.env' \
   --exclude='__pycache__' --exclude='claude-docs' --exclude='.pytest_cache' \
   --exclude='wandb' .
-gcloud compute scp --project="${PROJECT_ID}" --zone="${ZONE}" --tunnel-through-iap \
-  "${TARBALL}" "${INSTANCE_NAME}:/tmp/cw_upload.tar.gz"
-rm -f "${TARBALL}"
+# scp over the IAP tunnel (pscp on Windows) is flaky; retry a few times before giving up.
+scp_ok=""
+for attempt in 1 2 3 4; do
+  if gcloud compute scp --project="${PROJECT_ID}" --zone="${ZONE}" --tunnel-through-iap \
+       "${TARBALL}" "${INSTANCE_NAME}:/tmp/cw_upload.tar.gz"; then
+    scp_ok=1; break
+  fi
+  echo "scp attempt ${attempt} failed; retrying in 10s..."; sleep 10
+done
+rm -f "${TARBALL}" 2>/dev/null || true   # non-fatal: local temp may be briefly locked on Windows
+[ -n "${scp_ok}" ] || { echo "ERROR: scp failed after retries"; exit 1; }
 
 # --- run inside tmux, upload artifacts, self-delete (skills #7, #6, #14, #15) ---
 gcloud compute ssh "${INSTANCE_NAME}" --project="${PROJECT_ID}" --zone="${ZONE}" \
@@ -116,10 +126,9 @@ gcloud compute ssh "${INSTANCE_NAME}" --project="${PROJECT_ID}" --zone="${ZONE}"
       export WANDB_MODE='${WANDB_MODE}' &&
       export PYTHONUNBUFFERED=1 &&
       cd ${REMOTE_DIR} &&
-      bash scripts/run_experiment.sh ${MODEL} ${DATASET} ${HARDWARE} ${EXPERIMENT} 2>&1 | tee experiment.log ;
-      gsutil -m cp -r artifacts/${EXPERIMENT}/* gs://${BUCKET}/${EXPERIMENT}/ 2>/dev/null || true ;
-      gsutil cp experiment.log gs://${BUCKET}/${EXPERIMENT}/experiment.log 2>/dev/null || true ;
-      gcloud compute instances delete ${INSTANCE_NAME} --zone=${ZONE} -q
+      bash scripts/run_experiment.sh ${MODEL} ${DATASET} ${HARDWARE} ${EXPERIMENT} > experiment.log 2>&1 ;
+      rc=\\\$? ;
+      bash scripts/finalize.sh ${INSTANCE_NAME} ${ZONE} ${BUCKET} ${EXPERIMENT} \\\$rc
     \"
   "
 
