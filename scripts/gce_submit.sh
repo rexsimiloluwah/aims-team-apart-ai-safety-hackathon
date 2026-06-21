@@ -9,11 +9,15 @@ HARDWARE="${2:-a100}"
 DATASET="${3:-afrimmlu}"
 
 # --- env ---
+# capture command-line overrides BEFORE sourcing .env (sourcing would otherwise clobber them)
+_CLI_ZONE="${GCE_ZONE:-}"
+_CLI_IMAGE_FAMILY="${GCE_IMAGE_FAMILY:-}"
 [ -f .env ] && set -a && . ./.env && set +a
 PROJECT_ID="${GCE_PROJECT_ID:?set GCE_PROJECT_ID in .env}"
 BUCKET="${GCS_BUCKET:?set GCS_BUCKET in .env}"
-ZONE="${GCE_ZONE:-us-central1-a}"
-IMAGE_FAMILY="${GCE_IMAGE_FAMILY:-common-cu129-ubuntu-2204-nvidia-580}"
+# precedence: command-line override -> .env -> default
+ZONE="${_CLI_ZONE:-${GCE_ZONE:-us-central1-a}}"
+IMAGE_FAMILY="${_CLI_IMAGE_FAMILY:-${GCE_IMAGE_FAMILY:-common-cu129-ubuntu-2204-nvidia-580}}"
 IMAGE_PROJECT="deeplearning-platform-release"
 HF_TOKEN="${HF_TOKEN:-}"
 WANDB_API_KEY="${WANDB_API_KEY:-}"
