@@ -1,0 +1,29 @@
+{
+  "experiment": "afrollama_v1_afrimmlu",
+  "model": "Jacaranda/AfroLlama_V1",
+  "dataset": "masakhane/afrimmlu",
+  "n_samples": 9000,
+  "overall_accuracy": 0.283,
+  "mean_ece": 0.20771957940194344,
+  "mean_overconfidence": 0.20563981306884027,
+  "languages": [
+    "amh",
+    "eng",
+    "ewe",
+    "fra",
+    "hau",
+    "ibo",
+    "kin",
+    "lin",
+    "lug",
+    "orm",
+    "sna",
+    "sot",
+    "swa",
+    "twi",
+    "wol",
+    "xho",
+    "yor",
+    "zul"
+  ]
+}

@@ -1,0 +1,3 @@
+- model=afrollama_v1
+- dataset=afrimmlu
+- hardware=a100

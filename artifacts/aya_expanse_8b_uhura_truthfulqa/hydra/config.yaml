@@ -1,0 +1,87 @@
+model:
+  name: aya-expanse-8b
+  hf_id: CohereLabs/aya-expanse-8b
+  dtype: bfloat16
+  attn_implementation: sdpa
+  max_length: 2048
+  device_map: auto
+  trust_remote_code: false
+  use_chat_template: true
+  reasoning: false
+  n_samples: 1
+  temperature: 0.0
+  max_new_tokens: 8
+  ood_note: most sub-Saharan African languages are near-OOD for Aya Expanse
+dataset:
+  name: uhura_truthfulqa
+  hf_id: masakhane/uhura-truthfulqa
+  split: test
+  scoring: mc1
+  prompt_template: prompts/uhura_truthfulqa_mc1.txt
+  has_domain: true
+  languages:
+  - eng
+  - amh
+  - hau
+  - nso
+  - swa
+  - yor
+  - zul
+  hf_config_map:
+    eng: en_multiple_choice
+    amh: am_multiple_choice
+    hau: ha_multiple_choice
+    nso: nso_multiple_choice
+    swa: sw_multiple_choice
+    yor: yo_multiple_choice
+    zul: zu_multiple_choice
+  hf_category_config_map:
+    eng: en_generation
+    amh: am_generation
+    hau: ha_generation
+    nso: nso_generation
+    swa: sw_generation
+    yor: yo_generation
+    zul: zu_generation
+hardware:
+  name: a100
+  gpu_type: nvidia-tesla-a100
+  gpu_count: 1
+  machine_type: a2-highgpu-1g
+  zone: us-central1-a
+  boot_disk_gb: 100
+  batch_size: 8
+uq:
+  name: selective_abstention
+  thresholds:
+  - 0.25
+  - 0.3
+  - 0.4
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  - 1.0
+  coverage_targets:
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  threshold_source: per_language
+  n_bins: 15
+  bootstrap_n: 1000
+experiment:
+  name: ${hydra:runtime.choices.model}_${hydra:runtime.choices.dataset}
+  phase: 1
+  seed: 1234
+logging:
+  wandb_project: ${oc.env:WANDB_PROJECT,confidently-wrong}
+  wandb_mode: ${oc.env:WANDB_MODE,disabled}
+  save_logits: true
+artifacts:
+  base_dir: ./artifacts
+  experiment_dir: ${artifacts.base_dir}/${experiment.name}
+languages: null
+thinking_prompt_template: prompts/thinking_verbalized.txt

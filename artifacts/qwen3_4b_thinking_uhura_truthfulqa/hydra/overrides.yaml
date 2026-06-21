@@ -1,0 +1,3 @@
+- model=qwen3_4b_thinking
+- dataset=uhura_truthfulqa
+- hardware=a100

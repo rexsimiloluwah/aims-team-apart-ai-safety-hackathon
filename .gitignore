@@ -17,7 +17,8 @@ dist/
 # (uv.lock IS committed; .venv is not)
 
 # Experiment artifacts
-artifacts/
+# artifacts/ is now COMMITTED so teammates get results/figures/tables on clone.
+# (Run logs are still excluded via *.log below; results CSVs, predictions, and figures are kept.)
 wandb/
 *.log
 

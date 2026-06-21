@@ -1,0 +1,9 @@
+model,dataset,acc_eng,acc_afr,ece_eng,ece_afr,overconf_afr,ece_after_tempscale,auarc
+afrollama_v1,afrimmlu,0.356,0.2786,0.2246,0.2029,0.2006,0.0304,0.3099
+aya_expanse_8b,afrimmlu,0.52,0.2872,0.0572,0.1799,0.1781,0.0211,0.3354
+gemma4_12b,afrimmlu,0.296,0.269,0.3111,0.3413,0.3408,0.0746,0.2891
+qwen3_4b_instruct,afrimmlu,0.526,0.2958,0.0617,0.1524,0.1509,0.0208,0.3486
+afrollama_v1,uhura_truthfulqa,0.2917,0.3251,0.1774,0.1348,0.1298,0.0356,0.3453
+aya_expanse_8b,uhura_truthfulqa,0.3585,0.3079,0.0752,0.1995,0.1987,0.0427,0.3465
+gemma4_12b,uhura_truthfulqa,0.3288,0.3416,0.2121,0.257,0.2561,0.033,0.3866
+qwen3_4b_instruct,uhura_truthfulqa,0.3807,0.3199,0.0715,0.1689,0.1658,0.0297,0.3587

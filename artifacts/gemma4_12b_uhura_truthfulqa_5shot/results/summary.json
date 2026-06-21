@@ -1,0 +1,18 @@
+{
+  "experiment": "gemma4_12b_uhura_truthfulqa_5shot",
+  "model": "google/gemma-4-12B-it",
+  "dataset": "masakhane/uhura-truthfulqa",
+  "n_samples": 5581,
+  "overall_accuracy": 0.30468930578642367,
+  "mean_ece": 0.33182964415412114,
+  "mean_overconfidence": 0.331210562451241,
+  "languages": [
+    "amh",
+    "eng",
+    "hau",
+    "nso",
+    "swa",
+    "yor",
+    "zul"
+  ]
+}

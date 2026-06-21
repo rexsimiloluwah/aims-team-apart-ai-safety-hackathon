@@ -1,0 +1,3 @@
+- model=aya_expanse_8b
+- dataset=uhura_truthfulqa
+- hardware=a100

@@ -1,0 +1,3 @@
+- model=gemma4_12b
+- dataset=afrimmlu
+- hardware=a100

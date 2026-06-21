@@ -1,0 +1,29 @@
+{
+  "experiment": "gemma4_12b_afrimmlu",
+  "model": "google/gemma-4-12B-it",
+  "dataset": "masakhane/afrimmlu",
+  "n_samples": 9000,
+  "overall_accuracy": 0.26911111111111113,
+  "mean_ece": 0.3419457346300284,
+  "mean_overconfidence": 0.34105981050928436,
+  "languages": [
+    "amh",
+    "eng",
+    "ewe",
+    "fra",
+    "hau",
+    "ibo",
+    "kin",
+    "lin",
+    "lug",
+    "orm",
+    "sna",
+    "sot",
+    "swa",
+    "twi",
+    "wol",
+    "xho",
+    "yor",
+    "zul"
+  ]
+}

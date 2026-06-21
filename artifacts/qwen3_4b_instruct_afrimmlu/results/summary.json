@@ -1,0 +1,29 @@
+{
+  "experiment": "qwen3_4b_instruct_afrimmlu",
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "dataset": "masakhane/afrimmlu",
+  "n_samples": 9000,
+  "overall_accuracy": 0.3127777777777777,
+  "mean_ece": 0.14522229430079459,
+  "mean_overconfidence": 0.14076631468865608,
+  "languages": [
+    "amh",
+    "eng",
+    "ewe",
+    "fra",
+    "hau",
+    "ibo",
+    "kin",
+    "lin",
+    "lug",
+    "orm",
+    "sna",
+    "sot",
+    "swa",
+    "twi",
+    "wol",
+    "xho",
+    "yor",
+    "zul"
+  ]
+}

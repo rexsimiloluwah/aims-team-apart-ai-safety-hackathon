@@ -1,0 +1,88 @@
+model:
+  name: qwen3-4b-instruct
+  hf_id: Qwen/Qwen3-4B-Instruct-2507
+  dtype: bfloat16
+  attn_implementation: sdpa
+  max_length: 2048
+  device_map: auto
+  trust_remote_code: true
+  use_chat_template: true
+  reasoning: false
+  n_samples: 1
+  temperature: 0.0
+  max_new_tokens: 8
+dataset:
+  name: afrimmlu
+  hf_id: masakhane/afrimmlu
+  split: test
+  scoring: cloze
+  prompt_template: prompts/afrimmlu_cloze.txt
+  num_choices: 4
+  choice_labels:
+  - A
+  - B
+  - C
+  - D
+  has_domain: true
+  languages:
+  - eng
+  - fra
+  - amh
+  - ewe
+  - hau
+  - ibo
+  - kin
+  - lin
+  - lug
+  - orm
+  - sna
+  - sot
+  - swa
+  - twi
+  - wol
+  - xho
+  - yor
+  - zul
+hardware:
+  name: a100
+  gpu_type: nvidia-tesla-a100
+  gpu_count: 1
+  machine_type: a2-highgpu-1g
+  zone: us-central1-a
+  boot_disk_gb: 100
+  batch_size: 8
+uq:
+  name: selective_abstention
+  thresholds:
+  - 0.25
+  - 0.3
+  - 0.4
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  - 1.0
+  coverage_targets:
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  - 0.9
+  threshold_source: per_language
+  n_bins: 15
+  bootstrap_n: 1000
+experiment:
+  name: qwen3_4b_instruct_afrimmlu
+  phase: 1
+  seed: 1234
+logging:
+  wandb_project: confidently-wrong
+  wandb_mode: disabled
+  save_logits: true
+artifacts:
+  base_dir: ./artifacts
+  experiment_dir: ./artifacts/qwen3_4b_instruct_afrimmlu
+languages: null
+n_shots: 0
+thinking_prompt_template: prompts/thinking_verbalized.txt

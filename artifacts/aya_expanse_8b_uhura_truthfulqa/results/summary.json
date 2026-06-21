@@ -1,0 +1,18 @@
+{
+  "experiment": "aya_expanse_8b_uhura_truthfulqa",
+  "model": "CohereLabs/aya-expanse-8b",
+  "dataset": "masakhane/uhura-truthfulqa",
+  "n_samples": 5616,
+  "overall_accuracy": 0.31515084763696255,
+  "mean_ece": 0.181736602355642,
+  "mean_overconfidence": 0.17850223560661743,
+  "languages": [
+    "amh",
+    "eng",
+    "hau",
+    "nso",
+    "swa",
+    "yor",
+    "zul"
+  ]
+}

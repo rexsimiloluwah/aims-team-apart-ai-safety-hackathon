@@ -1,0 +1,18 @@
+{
+  "experiment": "qwen3_4b_instruct_uhura_truthfulqa",
+  "model": "Qwen/Qwen3-4B-Instruct-2507",
+  "dataset": "masakhane/uhura-truthfulqa",
+  "n_samples": 5616,
+  "overall_accuracy": 0.3285820264026301,
+  "mean_ece": 0.15497642532616968,
+  "mean_overconfidence": 0.15122484968342856,
+  "languages": [
+    "amh",
+    "eng",
+    "hau",
+    "nso",
+    "swa",
+    "yor",
+    "zul"
+  ]
+}

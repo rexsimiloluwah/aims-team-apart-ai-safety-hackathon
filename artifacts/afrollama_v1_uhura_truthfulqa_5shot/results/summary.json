@@ -1,0 +1,18 @@
+{
+  "experiment": "afrollama_v1_uhura_truthfulqa_5shot",
+  "model": "Jacaranda/AfroLlama_V1",
+  "dataset": "masakhane/uhura-truthfulqa",
+  "n_samples": 5581,
+  "overall_accuracy": 0.33873235368003046,
+  "mean_ece": 0.11901752152749948,
+  "mean_overconfidence": 0.11329830205548455,
+  "languages": [
+    "amh",
+    "eng",
+    "hau",
+    "nso",
+    "swa",
+    "yor",
+    "zul"
+  ]
+}
