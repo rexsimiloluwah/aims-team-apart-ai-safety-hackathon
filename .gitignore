@@ -29,6 +29,14 @@ wandb/
 .cache/
 hf_cache/
 
+# LaTeX build artifacts (keep main.tex + figures/; main.pdf optional)
+*.aux
+*.fls
+*.fdb_latexmk
+*.out
+*.toc
+*.synctex.gz
+
 # OS / editor
 .DS_Store
 .idea/
