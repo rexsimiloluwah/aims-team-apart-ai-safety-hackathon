@@ -42,3 +42,11 @@ hf_cache/
 .idea/
 .vscode/
 *.swp
+
+# LaTeX build artifacts (revision/)
+revision/*.aux
+revision/*.bbl
+revision/*.blg
+revision/*.out
+revision/paper.pdf
+revision/paper.log
