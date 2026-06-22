@@ -1,91 +1,93 @@
-# Confidently Wrong: Evaluating Calibration Risks and Safe Abstention in African-Language Large Language Models
+# Confidently Wrong: Measuring and Mitigating Calibration Risks in LLMs for African Languages
 
-*Apart Global South AI Safety Hackathon 2026 - Africa Track*
+*Apart Global South AI Safety Hackathon 2026 — Africa Track*
 
-**Factuality decay, miscalibration, and safe abstention in African-language MCQA.**
+📄 [Report](report/main.pdf)  ·  🖼️ [Slides](slides/main.pdf)
 
-A judge-free, reproducible study: open-weight models answer multilingual multiple-choice
-questions, confidence is read directly from the logits, and we show that in low-resource
-African languages models stay confident as they lose accuracy ("confidently wrong"), then
-mitigate it with selective abstention. Scored by exact match; everything runs offline on
-open weights.
+## Problem
+- Large language models are increasingly used in African languages, but their reliability there is largely unmeasured.
+- The safety failure we study is being **confidently wrong**: a wrong answer delivered with high confidence, which is most harmful where users cannot verify it.
 
-**Three-act spine**
-1. **Decay** - accuracy drops English → low-resource.
-2. **Overconfidence (the contribution)** - confidence does *not* fall as fast as accuracy, so
-   calibration error grows as resource falls.
-3. **Mitigation** - abstain below a confidence threshold; ship a per-language threshold
-   deployment card.
+## Methods
+- We audit four open-weight LLMs on two African-language benchmarks, scoring each answer option by its length-normalised log-probability (robust to instruction-tuned models) and measuring calibration (ECE, overconfidence, AUROC, AUARC).
+- We evaluate three post-hoc mitigations: per-language temperature scaling, selective abstention, and few-shot prompting.
+
+**Models**
+
+| Model | Params | Type | Hugging Face ID |
+|---|---|---|---|
+| Qwen3-4B-Instruct | 4B | Instruction-tuned | `Qwen/Qwen3-4B-Instruct` |
+| Gemma-4-12B | 12B | Instruction-tuned | `google/gemma-4-12b-it` |
+| Aya-Expanse-8B | 8B | Multilingual | `CohereLabs/aya-expanse-8b` |
+| AfroLlama-V1 | 7B | Africa-specific (LLaMA-2 base) | `Jacaranda/AfroLlama_V1` |
+
+**Datasets**
+
+| Dataset | Hugging Face ID | Task | Coverage / format |
+|---|---|---|---|
+| Uhura-TruthfulQA | `masakhane/uhura-truthfulqa` | Truthfulness | English + 6 African languages; variable candidates |
+| AfriMMLU | `masakhane/afrimmlu` | Knowledge | 18 languages; 4 options |
+
+## What we found
+- **Calibration degrades from English to African languages:** ECE and overconfidence rise markedly across models and tasks, and models are most overconfident where they are least accurate.
+- **Accuracy collapses on knowledge tasks:** on AfriMMLU the strongest models fall from ~0.52 (English) to ~0.29 (African, near the 0.25 chance floor).
+- **Temperature scaling is the best fix:** per-language recalibration cuts ECE to ~0.03 with no retraining; abstention helps less (weak uncertainty signal, AUROC ~0.55); few-shot helps three models but backfires on Gemma-4-12B.
+- **Bigger is not safer:** the 12B model is the worst calibrated.
+
+## Significance
+- The models are least reliable in exactly the languages where users can least verify answers, so confident misinformation falls hardest on the populations current models serve least.
+- A cheap, post-hoc fix already exists: per-language temperature scaling is a deployable safety lever today, best paired with confidence-thresholded abstention.
+
+## Team
+| Member | From | Email |
+|---|---|---|
+| Similoluwa Okunowo | 🇳🇬 Nigeria | similoluwa@aims.ac.za |
+| Eliud Koto | 🇰🇪 Kenya | eliud@aims.ac.za |
+| Dagmawi Misker | 🇪🇹 Ethiopia | dagmawi@aims.ac.za |
+
+All at the African Institute for Mathematical Sciences (AIMS), South Africa.
+
+## Reproduce
+
+All experiments were run on GCP using VMs equipped with A100 GPUs. Kindly check the `configs/` folder for configuration files to re-run and reproduce these experiments.
+
+
+All artifacts (predictions, per-language metrics, figures, and the cross-model comparison tables)
+are committed under [`artifacts/`](artifacts/): per-experiment outputs in
+`artifacts/<model>_<dataset>/`, and aggregated results in `artifacts/_comparison/`.
+
+<details>
+<summary><b>Scripts for reproducing our results</b></summary>
+
+All experiments were run on Google Cloud Platform virtual machines with NVIDIA A100 GPUs.
+`make gce-submit` launches a self-deleting GPU instance that runs
+`uv run python -m src.run model=<model> dataset=<dataset> hardware=a100` and uploads the results.
+
+```bash
+# Zero-shot: 4 models x 2 datasets (8 runs)
+for model in qwen3_4b_instruct gemma4_12b aya_expanse_8b afrollama_v1; do
+  for ds in afrimmlu uhura_truthfulqa; do
+    make gce-submit MODEL=$model DATASET=$ds HARDWARE=a100
+  done
+done
+
+# 5-shot calibration runs, Uhura-TruthfulQA only (4 runs): same run command with n_shots=5
+for model in qwen3_4b_instruct gemma4_12b aya_expanse_8b afrollama_v1; do
+  uv run python -m src.run model=$model dataset=uhura_truthfulqa hardware=a100 n_shots=5
+done
+
+# Collect results, then build the cross-model tables and figures
+make download-all
+make compare
+```
+</details>
+
+
+## LLM Usage Statement
+Claude Code was used to assist with coding the experiments and evaluation pipelines. However, the design,
+conceptualization, and review were done by the team.
 
 ---
 
-## ⚠️ Step 0 - verify the data before any GPU run
-
-A silent input-field drop invalidates an entire run. **Before** launching anything:
-
-```bash
-make setup
-uv run jupyter nbconvert --to notebook --execute --inplace notebooks/smoke_test.ipynb
-```
-
-The smoke notebook loads two languages per dataset, prints a full prompt verbatim, confirms
-every field is present (Uhura's variable candidate list + correct index; AfriMMLU's 4 options +
-answer letter), and checks English accuracy is plausible on one small model. Treat any
-implausible number as a data defect until proven otherwise.
-
-## Quickstart
-
-```bash
-cp .env.example .env          # fill in GCE_PROJECT_ID, GCS_BUCKET, HF_TOKEN
-make setup                    # uv sync
-make test                     # metrics unit tests (no GPU)
-make smoke                    # end-to-end smoke (small, CPU-friendly)
-
-# local run (needs a GPU for the real models)
-make run MODEL=qwen3_4b_instruct DATASET=afrimmlu HARDWARE=a100
-
-# GCE run (self-deleting instance; GCE_ZONE overrides .env)
-make gce-submit MODEL=qwen3_4b_instruct DATASET=afrimmlu HARDWARE=a100
-make download EXP=qwen3_4b_instruct_afrimmlu
-make analyze MODEL=qwen3_4b_instruct DATASET=afrimmlu
-make compare
-```
-
-## Datasets (both public, already in African languages, label-free)
-
-| Dataset | HF id | Role | Format |
-|---|---|---|---|
-| Uhura-TruthfulQA | `masakhane/uhura-truthfulqa` | safety-domain truthfulness (primary) | MC1: variable candidates, one correct |
-| AfriMMLU | `masakhane/afrimmlu` | clean fixed-option calibration + breadth | fixed 4-way A/B/C/D |
-
-> Original English-only TruthfulQA (Lin et al. 2022) must **not** be used for African coverage -
-> only the Uhura human-translated version.
-
-## Models (open weights only - confidence lives in the logits)
-
-| Config | HF id | Reasoning | Notes |
-|---|---|---|---|
-| `qwen3_4b_instruct` | `Qwen/Qwen3-4B-Instruct-2507` | no | non-thinking workhorse |
-| `qwen3_4b_thinking` | `Qwen/Qwen3-4B-Thinking-2507` | yes | reasoning-vs-non-reasoning experiment (E6) |
-| `gemma4_12b` | `google/gemma-4-12B-it` | no | newest, strong African coverage |
-| `afrollama_v1` | `Jacaranda/AfroLlama_V1` | no | built-for-Africa anchor; supports Swahili, Zulu, Yoruba, Hausa only |
-| `aya_expanse_8b` | `CohereLabs/aya-expanse-8b` | no | multilingual comparator (optional, time-permitting) |
-
-## Prompts & confidence modes
-
-Each dataset uses its canonical method:
-- **AfriMMLU** -> `fixed_option`: IrokoBench Table 12 template t1 (English, zero-shot, `{subject}` +
-  lettered options + `Answer:`); next-token logits restricted to the option-letter tokens (leading-space
-  " A".." D"), softmax over options. One forward pass per item.
-- **Uhura-TruthfulQA** -> `mc1`: canonical TruthfulQA MC1. A QA stem (`Q: .. / A:`); confidence is the
-  softmax over each candidate answer's **length-normalized log-prob**. This avoids the confidence
-  saturation that letter-scoring caused on Uhura's many-option questions (which flatlined abstention).
-  Candidates are still deterministically shuffled (seeded by language+question), since the released
-  `mc1_targets` list the correct answer first and the reasoning path letters them.
-- **self-consistency** (Qwen3-4B-Thinking, either dataset): sample N traces over a lettered list,
-  confidence = modal-answer agreement; also parse a verbalized "0-100%".
-
-## Layout
-
-See `claude-docs/PROJECT_PLAN_ConfidentlyWrong.md` for the full build plan (gitignored).
-`src/` holds the package; `configs/` is Hydra; `artifacts/<model>_<dataset>/` holds outputs.
+Thanks to **Apart Research** for organising this Hackathon, which created a valuable learning
+experience for solving pressing issues in AI safety for African languages like this.
