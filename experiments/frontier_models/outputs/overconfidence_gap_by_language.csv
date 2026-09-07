@@ -1,0 +1,13 @@
+model,benchmark,language,n_pairs,delta_overconfidence,ci_low,ci_high
+deepseek/deepseek-r1-0528,uhura_truthfulqa,amh,80,0.1444,0.0269,0.2625
+deepseek/deepseek-r1-0528,uhura_truthfulqa,hau,80,0.1987,0.065,0.3163
+deepseek/deepseek-r1-0528,uhura_truthfulqa,nso,80,0.1731,0.0531,0.2956
+deepseek/deepseek-r1-0528,uhura_truthfulqa,swa,80,0.1931,0.0675,0.3206
+deepseek/deepseek-r1-0528,uhura_truthfulqa,yor,78,0.2545,0.1263,0.3737
+deepseek/deepseek-r1-0528,uhura_truthfulqa,zul,70,0.1343,0.0093,0.2629
+google/gemini-2.5-pro,uhura_truthfulqa,amh,76,0.1141,0.0059,0.2301
+google/gemini-2.5-pro,uhura_truthfulqa,hau,79,0.2173,0.1006,0.3326
+google/gemini-2.5-pro,uhura_truthfulqa,nso,77,0.0639,-0.0462,0.1678
+google/gemini-2.5-pro,uhura_truthfulqa,swa,77,0.1068,-0.0013,0.2204
+google/gemini-2.5-pro,uhura_truthfulqa,yor,79,0.087,-0.0238,0.1927
+google/gemini-2.5-pro,uhura_truthfulqa,zul,29,0.0241,-0.1466,0.1966

@@ -50,3 +50,5 @@ revision/*.blg
 revision/*.out
 revision/paper.pdf
 revision/paper.log
+
+blog_handoff.md 

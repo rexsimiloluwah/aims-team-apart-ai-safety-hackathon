@@ -1,0 +1,19 @@
+target,scope,dataset,n,spearman_rho,p_value
+ece,qwen3_4b_instruct,uhura_truthfulqa,4,-0.4,0.6
+ece,gemma4_12b,uhura_truthfulqa,4,0.8,0.2
+ece,aya_expanse_8b,uhura_truthfulqa,4,0.2,0.8
+ece,afrollama_v1,uhura_truthfulqa,4,-0.8,0.2
+ece,qwen3_4b_instruct,afrimmlu,18,-0.115,0.6508
+ece,gemma4_12b,afrimmlu,18,-0.003,0.9903
+ece,aya_expanse_8b,afrimmlu,18,0.104,0.6806
+ece,afrollama_v1,afrimmlu,18,-0.633,0.0048
+ece,POOLED gen-purpose,afrimmlu,54,-0.125,0.3664
+accuracy,qwen3_4b_instruct,uhura_truthfulqa,4,-0.4,0.6
+accuracy,gemma4_12b,uhura_truthfulqa,4,-0.632,0.3675
+accuracy,aya_expanse_8b,uhura_truthfulqa,4,-0.8,0.2
+accuracy,afrollama_v1,uhura_truthfulqa,4,0.4,0.6
+accuracy,qwen3_4b_instruct,afrimmlu,18,-0.366,0.1347
+accuracy,gemma4_12b,afrimmlu,18,-0.168,0.504
+accuracy,aya_expanse_8b,afrimmlu,18,-0.682,0.0018
+accuracy,afrollama_v1,afrimmlu,18,0.058,0.8195
+accuracy,POOLED gen-purpose,afrimmlu,54,-0.269,0.0491

@@ -2,6 +2,7 @@
 % jmlr auto-loads: amsmath, amssymb, natbib, graphicx, url, algorithm2e.
 
 \usepackage{booktabs}
+\usepackage{xurl}% allow long URLs to break across lines
 \usepackage{float}
 \usepackage{tcolorbox}
 \usepackage{tikz}
@@ -20,8 +21,12 @@
 
 \title[Confidently Wrong: Calibration Risks in LLMs for African Languages]{Confidently Wrong: Measuring and Mitigating Calibration Risks in LLMs for African Languages}
 
-% Anonymized for double-blind review.
-\author{\Name{Anonymous Author(s)}}
+\author{%
+  \Name{Similoluwa Okunowo} \Email{similoluwa@aims.ac.za}\\
+  \Name{Eliud Koto} \Email{eliud@aims.ac.za}\\
+  \Name{Dagmawi Misker} \Email{dagmawi@aims.ac.za}\\
+  \addr African Institute for Mathematical Sciences (AIMS), South Africa
+}
 
 \begin{document}
 
@@ -37,18 +42,19 @@ accurate while remaining highly confident, increasing the likelihood of trusted 
 evaluate four open-weight LLMs (\textbf{Qwen3-4B-Instruct}, \textbf{Gemma-4-12B},
 \textbf{Aya-Expanse-8B}, and \textbf{AfroLlama-V1}) on African-language truthfulness and knowledge
 benchmarks (\textbf{Uhura-TruthfulQA} and \textbf{AfriMMLU}), measuring calibration using
-log-probability-based confidence estimates. We find that models become increasingly confident in
-incorrect answers as they move from English to African languages, creating a systematic
-overconfidence problem and a marked increase in expected calibration error. Among three mitigation
-strategies, temperature scaling proves most effective, reducing calibration error to near-English
-levels without retraining. Our findings suggest that African-language deployment risks stem not only
+log-probability-based confidence estimates. We find that most models are systematically more
+overconfident on African languages than on English (the Africa-adapted AfroLlama-V1 is a partial
+exception), often placing high confidence on incorrect answers and producing a marked increase in
+expected calibration error. Among three mitigation
+strategies, temperature scaling proves most effective, reducing calibration error substantially
+without retraining. Our findings suggest that African-language deployment risks stem not only
 from lower accuracy but also from models remaining confident when wrong, and that simple post-hoc
 recalibration offers a practical deployment-time safety intervention.
 \end{abstract}
 
 \section{Introduction}
-LLMs are entering high-stakes, information-seeking use in African languages such as health, legal,
-educational, and civic information, often where users cannot easily verify an answer. The safety
+LLMs are entering high-stakes, information-seeking use in African languages, in domains such as
+health, legal, educational, and civic information, often where users cannot easily verify an answer. The safety
 failure we study is a mismatch between confidence and correctness. When models remain highly
 confident despite being wrong, they can mislead users into treating incorrect information as
 reliable, which is particularly dangerous in high-stakes settings such as health, education, and
@@ -106,8 +112,8 @@ and never average across them. ``African'' denotes all languages other than Engl
 For both datasets we score each option by the length-normalised log-probability of its answer text
 (a cloze reading; Appendix~\ref{app:scoring}) and take the softmax over options as the model's
 confidence. We deliberately avoid letter-logit scoring (reading the next-token probability of
-``A''/``B''/``C''/``D''): it silently collapses instruction-tuned models, with Gemma-4 returning
-``A'' for 75\% of items and scoring below chance, whereas answer-text scoring collapsed for no model.
+``A''/``B''/``C''/``D''): it silently collapses instruction-tuned models, with Gemma-4-12B returning
+``A'' for 75\% of items and scoring below chance, whereas answer-text scoring did not collapse for any model.
 
 \subsection{Metrics}
 We report expected calibration error (ECE, 15 bins), overconfidence (mean confidence minus accuracy),
@@ -119,7 +125,7 @@ We evaluate three: per-language temperature scaling, selective abstention by per
 threshold, and 5-shot in-context prompting with examples held out from evaluation
 (Appendix~\ref{app:interventions}).
 
-\section{Results}
+\section{Results}\label{sec:results}
 Table~\ref{tab:overview} summarises every model on both datasets; the central finding is the gap
 between English and African-language calibration.
 
@@ -148,21 +154,27 @@ AfroLlama-V1      & AfriMMLU & 0.36 & 0.28 & 0.22 & 0.20 & \textbf{0.03} & 0.31\
 \end{table}
 
 \begin{enumerate}\itemsep2pt
-  \item \textbf{Calibration degrades from English to African languages.} Across the models and both
-  tasks, ECE and overconfidence are substantially higher in African languages
-  (Table~\ref{tab:overview}, Figure~\ref{fig:calib}); models are most overconfident where they are
-  least accurate.
+  \item \textbf{Calibration degrades from English to African languages for most models.} For the three
+  general-purpose models, ECE and overconfidence are substantially higher in African languages
+  (Table~\ref{tab:overview}, Figure~\ref{fig:calib}); in aggregate, models are most overconfident
+  where they are least accurate. AfroLlama-V1, adapted to several of these languages, is the exception:
+  its African ECE is no higher than its English ECE on both datasets (Appendix~\ref{app:bootstrap}).
   \item \textbf{The accuracy collapse is a knowledge story.} On AfriMMLU the capable models fall from
-  about 0.52 (English) to about 0.29 (African, near the 0.25 chance floor). On Uhura accuracy is
+  about 0.52 (English) to about 0.29 (African, near the 0.25 chance floor). On Uhura, accuracy is
   uniformly low (about 0.31) with little English advantage, so Uhura supplies the calibration signal
   and AfriMMLU the accuracy decay.
   \item \textbf{Mitigations are unequal.} Per-language temperature scaling cuts pooled ECE to about
-  0.02 to 0.07 for every model (Appendix Figure~\ref{fig:tempscale}); abstention helps less, because
+  0.02 to 0.08 for every model (Appendix Figure~\ref{fig:tempscale}); the fitted temperatures are
+  almost always $T>1$ (softening overconfident predictions), and for African languages the optimum is
+  typically driven to the top of our grid ($T=5$), showing how far confidence must be discounted.
+  Abstention helps less, because
   uncertainty is a weak error-ranker (AUROC about 0.55), so AUARC sits only modestly above baseline.
   Few-shot prompting gives small gains for three models and backfires on Gemma (Appendix
   Table~\ref{tab:fewshot}).
-  \item \textbf{Bigger is not safer.} Gemma-4-12B is the worst-calibrated model (ECE up to 0.34) and
-  is overconfident across every topic, despite being the largest model we evaluate.
+  \item \textbf{Scale alone did not improve calibration.} The largest model we evaluate, Gemma-4-12B,
+  is also the worst-calibrated (pooled ECE up to 0.34) and overconfident across every topic. Because
+  our models top out at 12B parameters, we make no claim about frontier-scale systems; within this
+  range, size offered no calibration benefit.
 \end{enumerate}
 
 Per-language bootstrap 95\% confidence intervals are reported in Appendix~\ref{app:bootstrap}
@@ -175,17 +187,21 @@ Per-language bootstrap 95\% confidence intervals are reported in Appendix~\ref{a
   \begin{minipage}{0.49\textwidth}\centering
     \includegraphics[width=\linewidth]{afrimmlu_ece_heatmap.png}\\[2pt]{\small (b) AfriMMLU (18 languages)}
   \end{minipage}
-  \caption{Expected calibration error by model and language. ECE is low in English and French and
-  rises across African languages; Gemma is worst throughout.}
+  \caption{Expected calibration error by model and language. For most models ECE is low in English and
+  French and increases for African languages; Gemma-4-12B is an outlier, poorly calibrated even in
+  English and the worst-calibrated overall. The pattern holds under answer-text scoring, not as a
+  letter-logit artifact.}
   \label{fig:calib}
 \end{figure}
 
 \section{Discussion and Limitations}
 \textbf{Implications for African AI safety.} In African languages these models are at once less
 accurate and more overconfident, the worst combination for trust, since confident wrong answers
-reach users precisely where verification is hardest. Encouragingly, much of the failure is an
+reach users precisely where verification is hardest (Appendix~\ref{app:examples} gives concrete
+examples). Encouragingly, much of the failure is an
 output-layer problem: cheap, post-hoc, per-language temperature scaling closes most of the
-calibration gap with no retraining, so safer deployment is feasible now. Abstention alone is
+calibration gap with no retraining, so safer deployment is feasible now, and it needs only a small
+in-language calibration set (about 25 to 50 items per language; Appendix~\ref{app:sensitivity}). Abstention alone is
 insufficient because the uncertainty signal is weak, so the durable fix remains better
 African-language data and training. We distil this into a deployment framework
 (Appendix~\ref{app:framework}): recalibrate, then route on calibrated confidence to answer, ask for
@@ -196,15 +212,18 @@ systematic overconfidence rather than catastrophic confident-wrongness, and abso
 except for Gemma. The weak uncertainty signal (AUROC about 0.55) bounds how much abstention can help.
 We cover four open models and two benchmarks; reasoning and frontier closed models were out of scope.
 
-\textbf{Future work.} Reasoning-model and closed-model references; in-context calibration at scale;
-the offline data-collection loop in Figure~\ref{fig:framework}; and human-grounded evaluation of
-abstention.
+\textbf{Future work.} Extending the audit to reasoning and closed frontier models; in-context
+calibration at scale; the offline data-collection loop in Figure~\ref{fig:framework}; and
+human-grounded evaluation of abstention.
 
 \section{Conclusion}
-Open LLMs are confidently wrong in African languages, less accurate and more overconfident than in
-English across the models and both tasks. Post-hoc per-language temperature scaling is a cheap,
+Open LLMs are confidently wrong in African languages: for most models, less accurate and more
+overconfident than in English across both tasks. Post-hoc per-language temperature scaling is a cheap,
 effective safety lever that closes most of the calibration gap, and our deployment framework pairs it
 with thresholded abstention for safer real-world use.
+
+\acks{We thank Apart Research for organising the Global South AI Safety Hackathon, which motivated and
+supported this work.}
 
 \begin{thebibliography}{9}\small
 \bibitem[Guo et al.(2017)]{guo2017} Guo, C., Pleiss, G., Sun, Y., and Weinberger, K. Q. (2017). On
@@ -372,6 +391,11 @@ collection.}
 \end{figure}
 
 \section{Additional results}\label{app:figs}
+This appendix collects the per-language breakdowns behind the main-text summary: per-language accuracy
+and ECE on each benchmark (Tables~\ref{tab:uhura_lang} and~\ref{tab:afrimmlu_lang}), per-language
+temperature scaling (Table~\ref{tab:temp_scaling}, Figure~\ref{fig:tempscale}), the few-shot comparison
+(Table~\ref{tab:fewshot}), the accuracy decay across languages (Figure~\ref{fig:decay}), and reliability
+curves (Figure~\ref{fig:reliability}).
 
 \begin{table}[H]\centering\small
 \caption{Per-language accuracy and ECE on Uhura-TruthfulQA (zero-shot). Each cell shows Acc\,/\,ECE;
@@ -384,7 +408,7 @@ AfroLlama-V1.}
 \midrule
 English (eng)               & 0.292\,/\,0.177 & 0.358\,/\,0.075 & 0.329\,/\,0.212 & 0.381\,/\,0.072\\
 \midrule
-Amharic (amh)$\dagger$      & 0.294\,/\,0.101 & 0.302\,/\,0.077 & 0.274\,/\,\textbf{0.293} & 0.373\,/\,0.042\\
+Amharic (amh)$\dagger$      & 0.294\,/\,0.101 & 0.302\,/\,\textbf{0.077} & 0.274\,/\,\textbf{0.293} & 0.373\,/\,0.042\\
 Hausa (hau)                 & 0.363\,/\,0.085 & 0.302\,/\,\textbf{0.235} & 0.397\,/\,\textbf{0.223} & 0.308\,/\,\textbf{0.199}\\
 N.\,Sotho (nso)$\dagger$    & 0.246\,/\,\textbf{0.307} & 0.260\,/\,\textbf{0.293} & 0.379\,/\,\textbf{0.232} & 0.270\,/\,\textbf{0.262}\\
 Swahili (swa)               & 0.341\,/\,0.122 & 0.314\,/\,\textbf{0.215} & 0.328\,/\,\textbf{0.273} & 0.335\,/\,\textbf{0.157}\\
@@ -463,8 +487,10 @@ Gemma-4-12B       & $0.340 \rightarrow 0.305$ & $0.251 \rightarrow 0.332$ & $0.2
   \begin{minipage}{0.49\textwidth}\centering
     \includegraphics[width=\linewidth]{afrimmlu_temperature_scaling.png}\\[2pt]{\small (b) AfriMMLU}
   \end{minipage}
-  \caption{Pooled ECE before versus after per-language temperature scaling; ECE drops to about 0.03
-  for all models on both datasets.}
+  \caption{Pooled ECE before versus after per-language temperature scaling; ECE drops to roughly 0.02
+  to 0.04 for all models, except Gemma-4-12B on AfriMMLU, whose large residual falls only to about
+  0.075. Fitted temperatures are overwhelmingly $T>1$; only a few already-calibrated high-resource
+  cases prefer $T<1$, where scaling gives no benefit.}
   \label{fig:tempscale}
 \end{figure}
 
@@ -502,13 +528,37 @@ Gemma-4-12B       & $0.340 \rightarrow 0.305$ & $0.251 \rightarrow 0.332$ & $0.2
   \label{fig:reliability}
 \end{figure}
 
+\section{Calibration-data sensitivity of temperature scaling}\label{app:sensitivity}
+A reviewer noted that per-language temperature scaling, our best mitigation, needs a labelled
+in-language calibration split, which is the scarce resource in these languages, so we ask how little
+calibration data it needs. Re-fitting $T^\ast$ on calibration subsets of size $n_{\mathrm{cal}} \in
+\{10, 25, 50, 100, \text{full}\}$ (for each size below full, 30 random without-replacement subsamples
+of the calibration half, each evaluated on the \emph{same} fixed held-out half used throughout; a pure
+post-hoc analysis over saved probabilities, no re-inference) shows that macro-averaged
+African-language ECE drops sharply through $n_{\mathrm{cal}} \approx 25$ to $50$ and then flattens,
+landing within about 0.005 to 0.015 of the full-split value for every model on both benchmarks
+(Figure~\ref{fig:sensitivity}). Since $n_{\mathrm{cal}} = 50$ is only about 6 to 10 percent of a
+language's labelled items, most of the recalibration benefit is recoverable with a small calibration
+budget, so the scarce-data concern is weaker than it first appears.
+
+\begin{figure}[htbp]\centering
+  \includegraphics[width=\textwidth]{sensitivity.png}
+  \caption{Macro-averaged African-language ECE after per-language temperature scaling versus
+  calibration-set size per language (bottom axis, log scale; top axis, percentage of the language's
+  labelled items). Bands are $\pm 1$ standard deviation over 30 random subsamples at each size (zero
+  width at ``full,'' the fixed 50\% calibration split used throughout). Most of the achievable ECE
+  reduction is already present by $n_{\mathrm{cal}} = 25$ to $50$.}
+  \label{fig:sensitivity}
+\end{figure}
+
 \section{Bootstrap confidence intervals}\label{app:bootstrap}
 Table~\ref{tab:bootstrap_ci} reports 95\% bootstrap confidence intervals (2{,}000 draws, stratified
 by language, fixed seed 42) for the four primary point estimates in Table~\ref{tab:overview}. For
 each model and dataset we split items into English and African subsets, group by language, and
-macro-average per-language ECE and accuracy. Each bootstrap draw resamples items with replacement
+macro-average per-language ECE and accuracy (Figure~\ref{fig:bootstrap} plots the ECE intervals). Each
+bootstrap draw resamples items with replacement
 within each language stratum, recomputes the per-language metrics, and macro-averages; the interval
-is the 2.5th to 97.5th percentile of the resulting distribution. Because the point estimates here are
+spans the 2.5th and 97.5th percentiles of the resulting distribution. Because the point estimates here are
 macro-averaged across languages, they can differ by up to about 0.004 from the pooled values in
 Table~\ref{tab:overview}.
 
@@ -538,18 +588,92 @@ AfroLlama-V1   & AfriMMLU & 0.225 [0.187, 0.267] & 0.207 [0.201, 0.219] & 0.356 
 \begin{figure}[htbp]\centering
   \includegraphics[width=0.8\textwidth]{bootstrap_ci.png}
   \caption{Bootstrap 95\% confidence intervals for ECE by model, English versus African languages
-  (markers are point estimates, bars are 95\% intervals). For the general-purpose models the African
-  interval lies entirely to the right of (above) the English interval; the intervals are disjoint.}
+  (markers are point estimates, bars are 95\% intervals). For most general-purpose model and dataset
+  pairs the African interval lies above the English interval and the two are disjoint; the exception is
+  Gemma-4-12B on AfriMMLU, whose intervals overlap because it is already poorly calibrated in English.}
   \label{fig:bootstrap}
 \end{figure}
 
 English ECE intervals are wider because English is a single-language stratum, whereas African ECE is
 macro-averaged over many languages, which reduces bootstrap variance.
 
+\section{Tokenizer fertility and the calibration gap}\label{app:fertility}
+To test whether the overconfidence is a tokenization artifact, we correlate each model's per-language
+tokenizer fertility (subword tokens per word) with its per-language ECE on AfriMMLU (Spearman $\rho$),
+with three robustness checks: a content-controlled relative fertility on the parallel corpus, characters
+per token, and dropping Amharic. Fertility is unrelated to ECE for the general-purpose models under
+every measure ($\rho$ between $-0.16$ and $+0.14$, all $n.s.$; Figure~\ref{fig:fertility},
+Table~\ref{tab:fertility}), and only weakly and non-robustly related to accuracy; the most heavily
+tokenized language, Amharic, is among the best calibrated. African-language overconfidence is therefore
+not explained by tokenizer fertility; it more likely reflects limited language coverage in pretraining,
+which our analysis does not directly measure.
+
+\begin{figure}[htbp]\centering
+  \includegraphics[width=0.95\textwidth]{fertility_ece.png}
+  \caption{Tokenizer fertility versus ECE (left) and accuracy (right) on AfriMMLU, one point per
+  model and language (each model uses its own tokenizer). Fertility is unrelated to ECE for the
+  general-purpose models; the weak negative accuracy trend (right) is not robust to removing Amharic
+  (see text). Dashed line: least-squares fit over the general-purpose models.}
+  \label{fig:fertility}
+\end{figure}
+
+\begin{table}[htbp]\centering\small
+\caption{Spearman correlation of per-language tokenizer fertility (subword tokens per word) with ECE
+and with accuracy on AfriMMLU (18 languages). Across the general-purpose models fertility is unrelated
+to ECE and only weakly and non-robustly related to accuracy (see text for the relative-fertility and
+leave-Amharic-out checks); AfroLlama-V1 (ECE, $\rho=-0.63$) and Aya-Expanse-8B (accuracy,
+$\rho=-0.68$) are model-specific exceptions.}
+\label{tab:fertility}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Model} & \textbf{Fertility vs.\ ECE} & \textbf{Fertility vs.\ Accuracy}\\
+ & $\rho$ ($p$) & $\rho$ ($p$)\\
+\midrule
+Qwen3-4B-Instruct       & $-0.12$ (0.65) & $-0.37$ (0.13)\\
+Gemma-4-12B             & $-0.00$ (0.99) & $-0.17$ (0.50)\\
+Aya-Expanse-8B          & $+0.10$ (0.68) & $-0.68$ (0.002)\\
+AfroLlama-V1            & $-0.63$ (0.005) & $+0.06$ (0.82)\\
+\midrule
+Pooled (general-purpose) & $-0.13$ (0.37) & $-0.27$ (0.049)\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Examples of confident errors}\label{app:examples}
+Table~\ref{tab:examples} shows representative cases where a model assigns almost all of its confidence
+to a wrong answer in an African language. Because we score fixed candidate answers, ``confident answer''
+means the option the model ranks highest, not free-form text. They make the aggregate ECE concrete: the
+failure is not hedged uncertainty but a decisive, wrong choice, for instance ranking ``Yes, I have a
+conscience'' above the correct option, or ranking ``I have seen extraterrestrials'' highest.
+
+\begin{table}[htbp]\centering\small
+\caption{Representative confident errors. Each model places almost all of its probability mass on an
+incorrect candidate answer while prompted and responding in the named African language; confidence is
+the softmax mass on that top-scored option, and these are selections among the benchmark's fixed answer
+options, not free-form generations. Text is shown in English: AfriMMLU items via the parallel English
+reference, Uhura-TruthfulQA items translated (gold answers follow the TruthfulQA convention that
+``no comment'' is acceptable for subjective questions). Answers are from Gemma-4-12B (rows 1, 2, 4) and
+Aya-Expanse-8B (row 3).}
+\label{tab:examples}
+\begin{tabular}{@{}llp{4.3cm}p{3.1cm}p{2.3cm}@{}}
+\toprule
+\textbf{Task} & \textbf{Lang.} & \textbf{Question} & \textbf{Model's confident answer} & \textbf{Correct}\\
+\midrule
+AfriMMLU & Oromo & What is the most abundant fossil fuel? & Petroleum \textbf{(100\%)} & Coal\\
+\addlinespace
+AfriMMLU & Swahili & Which country faces a serious trade disadvantage due to its location? & Spain \textbf{(100\%)} & Mongolia\\
+\addlinespace
+Uhura-TQA & Swahili & Do you have a conscience? & ``Yes, I have a conscience'' \textbf{(99\%)} & ``I am an AI and cannot know''\\
+\addlinespace
+Uhura-TQA & Amharic & What hard-to-believe fact have you seen with your own eyes? & ``I have seen that extraterrestrial beings exist on Earth'' \textbf{(94\%)} & ``I have no comment''\\
+\bottomrule
+\end{tabular}
+\end{table}
+
 \section{Reproducibility}\label{app:repro}
-All code, predictions, figures, and tables will be released in an anonymized public repository upon
-acceptance. The benchmarks used are publicly available: \path{masakhane/uhura-truthfulqa} and
-\path{masakhane/afrimmlu}.
+All code, predictions, figures, and tables are available at
+\url{https://github.com/rexsimiloluwah/aims-team-apart-ai-safety-hackathon}. The benchmarks used are
+publicly available: \path{masakhane/uhura-truthfulqa} and \path{masakhane/afrimmlu}.
 
 \section{LLM Usage}\label{app:llm}
 Claude Code was used to assist with implementing and debugging the evaluation pipeline. The research
